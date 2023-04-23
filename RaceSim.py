@@ -1,6 +1,6 @@
 import os
 import neat
-import visualize
+import racesim.util.visualize as visualize
 import pygame
 import pygame.freetype
 from pygame.math import Vector2
@@ -59,9 +59,11 @@ def game_stats(config, stats):
     visualize.plot_stats(stats, ylog=False, view=True)
     visualize.plot_species(stats, view=True)
 
-def neat_init(restore:bool,checkpoint_file:str=""):
+
+def neat_init(restore: bool, checkpoint_iterval: int, checkpoint_file: str = ""):
     if restore:
-        # p = neat.Checkpointer.restore_checkpoint('best_neat-291-7 sensor_cnnff')
+        # p = neat.Checkpointer.restore_checkpoint(
+            # 'best_neat-291-7 sensor_cnnff')
         p = neat.Checkpointer.restore_checkpoint(checkpoint_file)
         config = p.config
         game.generation = p.generation
@@ -72,7 +74,13 @@ def neat_init(restore:bool,checkpoint_file:str=""):
                                     neat.DefaultStagnation,
                                     config_path)
         p = neat.Population(config)
+        p.add_reporter(neat.StdOutReporter(True))
+    stats = neat.StatisticsReporter()
+    # save checkpoint each n genome iteration
+    p.add_reporter(neat.Checkpointer(checkpoint_iterval))
+    p.add_reporter(stats)
     return p
+
 
 def keystrokes_manager(pressed, game, config, stats):
     if pressed[pygame.K_q]:
@@ -276,32 +284,16 @@ def update_best(game, k, inputs):
 
 if __name__ == '__main__':
     local_dir = os.path.dirname(__file__)
-    config_path = os.path.join(local_dir, "racesim", "neat_config.ini")
+    config_path = os.path.join(local_dir, "racesim", "config", "neat_config.ini")
     GEN = 0
-    RESTORE = False
     pygame.font.init()
     # Create game environment
     game = Game()
     game_init()
-
-    # Start Race
-    if RESTORE:
-        # p = neat.Checkpointer.restore_checkpoint('best_neat-291-7 sensor_cnnff')
-        p = neat.Checkpointer.restore_checkpoint('neat-checkpoint-304')
-        config = p.config
-        game.generation = p.generation
-    else:
-        config = neat.config.Config(neat.DefaultGenome,
-                                    neat.DefaultReproduction,
-                                    neat.DefaultSpeciesSet,
-                                    neat.DefaultStagnation,
-                                    config_path)
-        p = neat.Population(config)
-
-    p.add_reporter(neat.StdOutReporter(True))
-    stats = neat.StatisticsReporter()
-    p.add_reporter(neat.Checkpointer(5))
-    p.add_reporter(stats)
+    # init AI
+    RESTORE = False
+    CHECKPOINT_INTERVAL = 5
+    p = neat_init(RESTORE, CHECKPOINT_INTERVAL, '')
 
     p.run(grun, 10000)
 
