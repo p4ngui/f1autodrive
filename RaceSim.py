@@ -60,13 +60,21 @@ def game_stats(config, stats):
     visualize.plot_species(stats, view=True)
 
 
-def neat_init(restore: bool, checkpoint_iterval: int, checkpoint_file: str = ""):
+def neat_init(checkpoint_iterval: int = 5,
+              restore: bool = False,
+              checkpoint_file: str = "",
+              config_path=""):
     if restore:
         # p = neat.Checkpointer.restore_checkpoint(
-            # 'best_neat-291-7 sensor_cnnff')
-        p = neat.Checkpointer.restore_checkpoint(checkpoint_file)
-        config = p.config
-        game.generation = p.generation
+        # 'best_neat-291-7 sensor_cnnff')
+        if not checkpoint_file:
+            print("Restore is set to True, but no checkpoint file was set, consider to set a checkpoint file")
+            pygame.quit()
+            exit(1)
+        else:
+            p = neat.Checkpointer.restore_checkpoint(checkpoint_file)
+            config = p.config
+            game.generation = p.generation
     else:
         config = neat.config.Config(neat.DefaultGenome,
                                     neat.DefaultReproduction,
@@ -107,7 +115,7 @@ def keystrokes_manager(pressed, game, config, stats):
         print(Mouse_x, Mouse_y)
 
 
-def grun(genomes, config):
+def generation_iteration(genomes, config):
     # Setup Race
     # TODO : creat grid (qualif)
     nets = game.create_brains(genomes, config)
@@ -165,9 +173,7 @@ def grun(genomes, config):
                 # inputs.append(game.cars[k].angle/180)
 
                 print(inputs) if DEBUG else None
-                # Get AI inputs
-                print_inp = False
-                if print_inp:
+                if print_inp := False:
                     print(inputs)
                     print_inp = False
                 car_lap_distance_old = game.cars[k].lap_distance
@@ -284,7 +290,6 @@ def update_best(game, k, inputs):
 
 if __name__ == '__main__':
     local_dir = os.path.dirname(__file__)
-    config_path = os.path.join(local_dir, "racesim", "config", "neat_config.ini")
     GEN = 0
     pygame.font.init()
     # Create the game environment
@@ -294,15 +299,17 @@ if __name__ == '__main__':
     # init AI
     RESTORE = False
     CHECKPOINT_INTERVAL = 5
-    p = neat_init(RESTORE, CHECKPOINT_INTERVAL, '')
+    config_path = os.path.join(local_dir, "racesim", "config", "neat_config.ini")
+    p = neat_init(CHECKPOINT_INTERVAL, RESTORE, '', config_path)
 
-    # Run the game
-    p.run(grun, 10000)
+    # Run AI main routine for each generation cycle util generation_iteration or dead of all species
+    GENERATION_CYCLES = 100000
+    p.run(generation_iteration, GENERATION_CYCLES)
 
     # End Race
     # End Game
     pygame.quit()
 
-    # TODO create a separeted windows for genome,
+    # TODO create a separated windows for genome,
         #  another one for score & positions
 

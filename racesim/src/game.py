@@ -271,4 +271,3 @@ class Game:
             # g.fitness = 0
         return nets
     def reset(self):
-        

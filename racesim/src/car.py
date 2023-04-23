@@ -7,7 +7,22 @@ import racesim.src.gearbox
 import racesim.src.tires
 import os
 import numpy as np
-
+    """
+        https://formulapedia.com/f1-car-length/
+        F1 2023 messures in mm
+                    Length  width   height
+        Mercedes	5500	2000	970
+        Red Bull	5400	2000	950
+        Ferrari	    5500	2000	970
+        Alpine	    5620	2000	1100
+        McLaren	    5400	2000	950  600:2000 (3.3mm/px), 1640:5400(3.29263mm/px)
+                       mesures from jpg  350:1410px 1165:4700 mm
+        Alfa Romeo	5500	2000	950
+        Haas	    5500	2000	950
+        Alpha Tauri	5500	2000	950
+        Aston Martin5600	2000	950
+        Williams	5400	2000	960
+    """
 
 class Car(pygame.sprite.Sprite):
 
@@ -15,9 +30,9 @@ class Car(pygame.sprite.Sprite):
                  angle=0.0,
                  velocity=Vector2(0.1, 0.1),
                  acceleration=0,
-                 length=57,
+                 length=54,
                  width=20,
-                 max_steering=45,
+                 max_steering=30,
                  max_acceleration=5.0,
                  team="Mercedes",
                  driver="HAM"):
@@ -38,9 +53,17 @@ class Car(pygame.sprite.Sprite):
         self.width = width
         self.length = length
         # regalmentary F1 2020 axes max distnce §3.2.2 FIA
+        #  McLaren	    5400	2000	950  600:2000 (3.3mm/px), 1405:5400(3.29263mm/px)
+        #                  mesures from jpg  350:1410 px
+        #1405px:5400mm
+        # 302px  195px
+        # 1160.71mm    3489.82mm 749.47mm
+        #   |   Front                                   Rear    |
+        #   |<-- 1161 --->| <--------- 3490 ------->|<-- 749 --->| mm
+        #   |___________(_|_)_____________________(_|_)__________|
         self.wheel_rear_axe_center = Vector2(8.10, self.width/2)
         self.wheel_front_axe_center = Vector2(self.length - 12.25, self.width/2)
-        self.wheel_axe_distance = self.length - (12.25 + 8.10)
+        self.wheel_axe_distance = self.length - (11.5244 + 7.5732)
         self.center = Vector2(self.length/2, self.width/2)
         self.gravity_center = None
         self.mass_gravity = None
@@ -54,14 +77,13 @@ class Car(pygame.sprite.Sprite):
         # ======= PERFORMANCE ======
         # TODO load car profiles & calculate limits dynamically
         self.max_acceleration = 196.1  # 19.61 m/s2 = 2G of acceleration
-        self.max_steering = max_steering
+        self.max_steering = max_steering  # [deg]
         self.max_speed = 1028  # (1028px/s => 102.8m/s = 370km/h)
-        self.brake_deceleration = 559
         # TODO Dynamic 5.7G =55,9 m/s2 from real data in 2020
-        self.max_brake_decel = 559
+        self.brake_deceleration = 559  # [px/s-2]
         # TODO self.free_deceleration integrate dynamically
         # calculated w/drag coef in fonction of speed
-        self.free_deceleration = 10
+        self.free_deceleration = 10  # [px/s-2]
         # ======= Live data =======
         self.commands = [0, 0]  # [0, 0, 0, 0]
         self.acceleration = acceleration
@@ -189,15 +211,52 @@ class Car(pygame.sprite.Sprite):
         return sensors
 
     def update_velocity(self,dt):
-        
+
+        """dt (float) : discrete time period [s]
+        wheelbase (float) : vehicle's wheelbase [m]
+        max_steer (float) : vehicle's steering limits [rad]
+        """
+
+        """
+        Summary
+        -------
+        Updates the vehicle's state using the kinematic bicycle model
+        Parameters
+        ----------
+        x (int) : vehicle's x-coordinate [m]
+        y (int) : vehicle's y-coordinate [m]
+        yaw (int) : vehicle's heading [rad]
+        velocity (int) : vehicle's velocity in the x-axis [m/s]
+        acceleration (int) : vehicle's accleration [m/s^2]
+        steering_angle (int) : vehicle's steering angle [rad]
+        Returns
+        -------
+        new_x (int) : vehicle's x-coordinate [m]
+        new_y (int) : vehicle's y-coordinate [m]
+        new_yaw (int) : vehicle's heading [rad]
+        new_velocity (int) : vehicle's velocity in the x-axis [m/s]
+        steering_angle (int) : vehicle's steering angle [rad]
+        angular_velocity (int) : vehicle's angular velocity [rad/s]
+        # Compute the local velocity in the x-axis
+        new_velocity = velocity + self.delta_time * acceleration
+        """
+        new_velocity = velocity + self.delta_time * acceleration
+        # Compute the angular velocity
+        angular_velocity = new_velocity*tan(steering_angle) / self.wheelbase
+
     def update_acceleration(self,dt):
         
     def update_position(self,dt):
-        
+        # Compute the final state using the discrete time model
+        new_x   = x + velocity*cos(yaw)*self.delta_time
+        new_y   = y + velocity*sin(yaw)*self.delta_time
+        new_yaw = normalise_angle(yaw + angular_velocity*self.delta_time)
     def update_camera(self,dt):
         
     def update_steering_angle(self,dt):
-        
+        # Limit steering angle to physical vehicle limits
+        steering_angle = -self.max_steer if steering_angle < -self.max_steer else self.max_steer if steering_angle > self.max_steer else steering_angle
+
     def update(self, dt):
         self.velocity.scale_to_length(max(self.velocity.length() + 1 * self.acceleration * dt, 10e-1))
         # max(min(maxn, n), minn)
