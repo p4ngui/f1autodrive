@@ -27,7 +27,7 @@ def game_reset():
     game.clock = pygame.time.Clock()
     game.ticks = 60
     # init lap numbrers
-    game.laps = 30
+    game.set_laps(30)
     # game.cars = []
     # game.laps = []
     # game.max_laps = 0
@@ -261,7 +261,7 @@ def grun(genomes, config):
             # TODO add lap chrono to race time
 
         # TODO  Start new Lap
-        # TODO init lap crono
+        # TODO init lap chrono
         else:
             pygame.display.flip()
             are_we_alone = True
@@ -287,16 +287,22 @@ if __name__ == '__main__':
     config_path = os.path.join(local_dir, "racesim", "config", "neat_config.ini")
     GEN = 0
     pygame.font.init()
-    # Create game environment
+    # Create the game environment
     game = Game()
     game_init()
+
     # init AI
     RESTORE = False
     CHECKPOINT_INTERVAL = 5
     p = neat_init(RESTORE, CHECKPOINT_INTERVAL, '')
 
+    # Run the game
     p.run(grun, 10000)
 
     # End Race
     # End Game
     pygame.quit()
+
+    # TODO create a separeted windows for genome,
+        #  another one for score & positions
+

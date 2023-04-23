@@ -16,7 +16,7 @@ import neat
 class Game:
     def __init__(self):
         self.startPygame()
-        # TODO : remove overrode & get values from const
+        # TODO : remove override & get values from const
         self.width = int(1280*0.7)
         self.height = 720 + 150
         #######
@@ -44,10 +44,10 @@ class Game:
         self.best_local_inputs = None
         self.sum_l = 0.0
         self.sum_d = 0.0
-        
 
         self.cars = []
-        self.laps = []
+        self.laps = 0
+        self.laps_left = 0
         self.max_laps = 0
         self.best_lap = 0
         self.racetime = 0
@@ -57,6 +57,11 @@ class Game:
         self.nets = []
         self.ge = []
         self.NNs = []
+
+    def set_laps(self, laps):
+        self.laps = laps
+        self.laps_left = self.laps_left
+
 
     def startGame(self):
         # Build Track
