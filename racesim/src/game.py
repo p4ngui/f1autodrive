@@ -44,8 +44,7 @@ class Game:
         self.best_local_inputs = None
         self.sum_l = 0.0
         self.sum_d = 0.0
-        # init Track
-        self.track = Track(0, self.width//2, self.height//2)
+        
 
         self.cars = []
         self.laps = []
@@ -266,3 +265,5 @@ class Game:
             nets.append(neat.nn.FeedForwardNetwork.create(g, config))
             # g.fitness = 0
         return nets
+    def reset(self):
+        
