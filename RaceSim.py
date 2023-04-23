@@ -12,25 +12,40 @@ from racesim.src.game import Game
 # TODO: create driver class
 
 
-def game_reset():
-    game.cars = []
-    game.laps = []
-    game.max_laps = 0
-    game.best_lap = 0
-    game.racetime = 0
+def game_init():
+    # Start the Game (build track)
+    # Build Track
+    # TODO : track selection (isolate track build in a method)
+    game.track.build_track()
+    # game.startGame()
+    game_reset()
 
-    # AI
-    # game.generation = 0
-    game.nets = []
-    # game.ge = []
-    game.NNs = []
-    # game.updateScore(0)
-    game.bestCarPos = Vector2(-game.width // 2, -game.height // 2)
-    # game.bestCarDistance = 0.0
-    # game.bestCommands = None
-    # game.bestInputs = None
-    # game.bestGenome = None
-    # game.bestNN = None
+
+def game_reset():
+    game.__init__()
+    game.generation += 1
+    game.clock = pygame.time.Clock()
+    game.ticks = 60
+    # init lap numbrers
+    game.laps = 30
+    # game.cars = []
+    # game.laps = []
+    # game.max_laps = 0
+    # game.best_lap = 0
+    # game.racetime = 0
+
+    # # AI
+    # # game.generation = 0
+    # game.nets = []
+    # # game.ge = []
+    # game.NNs = []
+    # # game.updateScore(0)
+    # game.bestCarPos = Vector2(-game.width // 2, -game.height // 2)
+    # # game.bestCarDistance = 0.0
+    # # game.bestCommands = None
+    # # game.bestInputs = None
+    # # game.bestGenome = None
+    # # game.bestNN = None
 
 
 def game_stats(config, stats):
@@ -44,6 +59,20 @@ def game_stats(config, stats):
     visualize.plot_stats(stats, ylog=False, view=True)
     visualize.plot_species(stats, view=True)
 
+def neat_init(restore:bool,checkpoint_file:str=""):
+    if restore:
+        # p = neat.Checkpointer.restore_checkpoint('best_neat-291-7 sensor_cnnff')
+        p = neat.Checkpointer.restore_checkpoint(checkpoint_file)
+        config = p.config
+        game.generation = p.generation
+    else:
+        config = neat.config.Config(neat.DefaultGenome,
+                                    neat.DefaultReproduction,
+                                    neat.DefaultSpeciesSet,
+                                    neat.DefaultStagnation,
+                                    config_path)
+        p = neat.Population(config)
+    return p
 
 def keystrokes_manager(pressed, game, config, stats):
     if pressed[pygame.K_q]:
@@ -74,14 +103,11 @@ def grun(genomes, config):
     # Setup Race
     # TODO : creat grid (qualif)
     nets = game.create_brains(genomes, config)
-    game.generation += 1
     pos = Vector2(0, 0)
-    game.clock = pygame.time.Clock()
-    game.ticks = 60
     game.clock.tick(0)
     t = 0
-    # init lap numbrers
-    game.laps = 30
+    # init Track
+    game.track = Track(0, game.width//2, game.height//2)
     # setup cars
     game_reset()
     # start car engins
@@ -256,8 +282,8 @@ if __name__ == '__main__':
     pygame.font.init()
     # Create game environment
     game = Game()
-    # Start the Game (build track)
-    game.startGame()
+    game_init()
+
     # Start Race
     if RESTORE:
         # p = neat.Checkpointer.restore_checkpoint('best_neat-291-7 sensor_cnnff')
