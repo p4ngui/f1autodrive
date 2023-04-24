@@ -57,14 +57,16 @@ class Game:
         self.nets = []
         self.ge = []
         self.NNs = []
+        self.track = None
 
     def set_laps(self, laps):
         self.laps = laps
         self.laps_left = self.laps_left
 
-
-    def startGame(self):
+    def buildTrack(self, track_config):
         # Build Track
+        self.track = Track()
+        self.track.set_config(track_config)
         # TODO : track selection (isolate track build in a method)
         self.track.build_track()
 
@@ -77,7 +79,7 @@ class Game:
         p = 0
         self.cars_inrace = 0
         for id, g in genomes:
-            # F1 2020 car dimensions 5.7 m length x 2 m width
+            # F1 2023 car dimensions 5.5 m length x 2 m width
             # (scale factor 10px per Meter)
             # CAR Setup
             self.cars.append(racesim.src.car.Car(-0, -0))
@@ -270,4 +272,6 @@ class Game:
             nets.append(neat.nn.FeedForwardNetwork.create(g, config))
             # g.fitness = 0
         return nets
+
     def reset(self):
+        pass

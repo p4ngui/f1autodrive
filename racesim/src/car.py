@@ -7,22 +7,23 @@ import racesim.src.gearbox
 import racesim.src.tires
 import os
 import numpy as np
-    """
+
+"""
         https://formulapedia.com/f1-car-length/
         F1 2023 messures in mm
-                    Length  width   height
-        Mercedes	5500	2000	970
-        Red Bull	5400	2000	950
-        Ferrari	    5500	2000	970
-        Alpine	    5620	2000	1100
-        McLaren	    5400	2000	950  600:2000 (3.3mm/px), 1640:5400(3.29263mm/px)
-                       mesures from jpg  350:1410px 1165:4700 mm
-        Alfa Romeo	5500	2000	950
-        Haas	    5500	2000	950
-        Alpha Tauri	5500	2000	950
-        Aston Martin5600	2000	950
-        Williams	5400	2000	960
+       Team	        Length (m)	Width (m)	Height (m)
+        Red Bull	5.4	        2.0	        0.95
+        Ferrari	    5.5	        2.0	        0.97
+        Mercedes	5.5     	2.0	        0.97
+        Alpine	    5.5	        2.0	        1.1
+        McLaren	    5.4	        2.0	        0.95
+        Alfa Romeo	5.5	        2.0	        0.95
+        AstonMartin 5.5	        2.0 	    0.95
+        Haas	    5.5	        2.0	        0.95
+        AlphaTauri	5.5	        2.0	        0.95
+        Williams	5.4	        2.0	        0.96
     """
+
 
 class Car(pygame.sprite.Sprite):
 
@@ -245,17 +246,24 @@ class Car(pygame.sprite.Sprite):
         angular_velocity = new_velocity*tan(steering_angle) / self.wheelbase
 
     def update_acceleration(self,dt):
-        
+        pass
+
     def update_position(self,dt):
         # Compute the final state using the discrete time model
         new_x   = x + velocity*cos(yaw)*self.delta_time
         new_y   = y + velocity*sin(yaw)*self.delta_time
         new_yaw = normalise_angle(yaw + angular_velocity*self.delta_time)
+
     def update_camera(self,dt):
-        
+        pass
+
     def update_steering_angle(self,dt):
         # Limit steering angle to physical vehicle limits
-        steering_angle = -self.max_steer if steering_angle < -self.max_steer else self.max_steer if steering_angle > self.max_steer else steering_angle
+        steering_angle = (
+            -self.max_steer
+            if steering_angle < -self.max_steer
+            else min(steering_angle, self.max_steer)
+        )
 
     def update(self, dt):
         self.velocity.scale_to_length(max(self.velocity.length() + 1 * self.acceleration * dt, 10e-1))
