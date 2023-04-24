@@ -13,20 +13,11 @@ import racesim.src.track_config
 # TODO: create driver class
 
 
-def game_init():
-    # Start the Game (build track)
-    # Build Track
-    # TODO : track selection
-    game.build_track(racesim.src.track_config.trackConfig())
-    game_reset()
-
-
 def game_reset():
     game.__init__()
     game.generation += 1
-    game.clock = pygame.time.Clock()
-    game.ticks = 60
-    # init lap numbrers
+    game.set_clock()
+    # init lap numbers
     game.set_laps(30)
     # game.cars = []
     # game.laps = []
@@ -115,17 +106,27 @@ def keystrokes_manager(pressed, game, config, stats):
         print(Mouse_x, Mouse_y)
 
 
+def genome_evaluation(genomes, config):
+    pass
+
+# TODO eval genome => car net
+#       car fitnnes todo
+# TODO Build track inly on restart or star game ot iteration
+
+
 def generation_iteration(genomes, config):
     # Setup Race
-    # TODO : creat grid (qualif)
+    # TODO : create grid (qualif)
+    global nets
     nets = game.create_brains(genomes, config)
     pos = Vector2(0, 0)
-    game.clock.tick(0)
-    t = 0
+
     # init Track
-    game.track = Track(0, game.width//2, game.height//2)
+    # Build Track
+    # TODO : track selection
+    game.reset()
+    game.buildTrack(racesim.src.track_config.trackConfig())
     # setup cars
-    game_reset()
     # start car engins
     # Start Race
     game.startRace(genomes, config)
@@ -134,6 +135,9 @@ def generation_iteration(genomes, config):
     are_we_alone = False
     game.updateScore(0.0)
     track_length = game.track.get_track_length()
+    # TODO method to change game frequency
+    t = 0
+    game.set_clock(60)
     # Loop
     while not are_we_alone:
         t += 1
@@ -144,6 +148,8 @@ def generation_iteration(genomes, config):
             if event.type == pygame.QUIT:
                 game.exit = True
                 are_we_alone = True
+            else:
+                print(f"Events : {event}")
         # ======== User input ===========
         pressed = pygame.key.get_pressed()
         keystrokes_manager(pressed, game, config, stats)
@@ -156,7 +162,7 @@ def generation_iteration(genomes, config):
                 car_pos = Vector2(game.cars[k].position.x + game.track.offset_x,
                                   game.cars[k].position.y + game.track.offset_y)
 
-                # Beam detection (IDAR)
+                # Beam detection (LIDAR)
                 sensors = game.cars[k].getSensors(car_pos)
                 inputs = []
 
@@ -185,7 +191,7 @@ def generation_iteration(genomes, config):
                 game.cars[k].move(dt)
                 # Update car vel, accel, lap_distance, .... after AI actions
                 (x, y) = game.cars[k].update(dt)
-                # Update curret car vector over the track
+                # Update current car vector over the track
                 car_pos = Vector2(x + game.track.offset_x,
                                   y + game.track.offset_y)
                 # Detect Collision
@@ -294,11 +300,11 @@ if __name__ == '__main__':
     pygame.font.init()
     # Create the game environment
     game = Game()
-    game_init()
 
     # init AI
     RESTORE = False
     CHECKPOINT_INTERVAL = 5
+    stats = None
     config_path = os.path.join(local_dir, "racesim", "config", "neat_config.ini")
     p = neat_init(CHECKPOINT_INTERVAL, RESTORE, '', config_path)
 

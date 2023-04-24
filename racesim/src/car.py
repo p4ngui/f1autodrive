@@ -10,7 +10,7 @@ import numpy as np
 
 """
         https://formulapedia.com/f1-car-length/
-        F1 2023 messures in mm
+        F1 2023 measures in mm
        Team	        Length (m)	Width (m)	Height (m)
         Red Bull	5.4	        2.0	        0.95
         Ferrari	    5.5	        2.0	        0.97
@@ -46,17 +46,17 @@ class Car(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=(x, y))
         self.position = Vector2(x, y)
         self.rect.center = self.position
-
+        self.pilot_ia = None
         self.angle = angle
         self.velocity = velocity
 
-        # ======= CAR DIMENTIONS
+        # ======= CAR DIMENSIONS
         self.width = width
         self.length = length
-        # regalmentary F1 2020 axes max distnce §3.2.2 FIA
+        # regalmentary F1 2020 axes max distance §3.2.2 FIA
         #  McLaren	    5400	2000	950  600:2000 (3.3mm/px), 1405:5400(3.29263mm/px)
         #                  mesures from jpg  350:1410 px
-        #1405px:5400mm
+        # 1405px:5400mm
         # 302px  195px
         # 1160.71mm    3489.82mm 749.47mm
         #   |   Front                                   Rear    |
@@ -92,7 +92,7 @@ class Car(pygame.sprite.Sprite):
         self.camera = Vector2(0, 0)  # Assigned the camera as an attribute.
         self.lap_start_time = 0.0
         self.laptimes = []
-        self.lap_number = 1
+        self.lap_number = 0
         self.lap_distance = 0.0
         if self.velocity.length() > self.max_speed:
             self.velocity.scale_to_length(self.max_speed)
@@ -178,12 +178,17 @@ class Car(pygame.sprite.Sprite):
         # k_1_ln:                   [?] tire degradation parameter (logarithmic model)
         # k_2_ln:                   [?] tire degradation parameter (logarithmic model) -> scaling of age
         self.tireset_pars = self.car_pars[team]['driver'][driver]
-
         self.tires = racesim.src.tires.Tires("A3", 0, self.car_pars[team]['driver'][driver])
         self.gearbox = racesim.src.gearbox.GearBox()
-        self.gear = self.gearbox.find_gear(self.velocity.length(),
-                                           self.tires.circumref_driven_tire(
-                                               self.velocity.length()))
+        # self.gear = self.gearbox.find_gear(self.velocity.length(),
+        #                                    self.tires.circumref_driven_tire(
+        #                                        self.velocity.length()))
+
+    def set_ia(self, net):
+        self.pilot_ia(net)
+
+    def get_ia_actions(self, inputs):
+        return self.pilot_ia.activate(input)
 
     def loadImage(self):
         # TODO : add random load on create or a color type by tag parameter
@@ -211,7 +216,7 @@ class Car(pygame.sprite.Sprite):
                      ]))
         return sensors
 
-    def update_velocity(self,dt):
+    def update_velocity(self, dt):
 
         """dt (float) : discrete time period [s]
         wheelbase (float) : vehicle's wheelbase [m]
@@ -245,10 +250,10 @@ class Car(pygame.sprite.Sprite):
         # Compute the angular velocity
         angular_velocity = new_velocity*tan(steering_angle) / self.wheelbase
 
-    def update_acceleration(self,dt):
+    def update_acceleration(self, dt):
         pass
 
-    def update_position(self,dt):
+    def update_position(self, dt):
         # Compute the final state using the discrete time model
         new_x   = x + velocity*cos(yaw)*self.delta_time
         new_y   = y + velocity*sin(yaw)*self.delta_time
@@ -257,7 +262,7 @@ class Car(pygame.sprite.Sprite):
     def update_camera(self,dt):
         pass
 
-    def update_steering_angle(self,dt):
+    def update_steering_angle(self, dt):
         # Limit steering angle to physical vehicle limits
         steering_angle = (
             -self.max_steer

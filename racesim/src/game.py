@@ -58,6 +58,12 @@ class Game:
         self.ge = []
         self.NNs = []
         self.track = None
+        self.clock = None
+
+    def set_clock(self, ticks: int = 60):
+        self.clock = pygame.time.Clock()
+        self.ticks = ticks
+        self.clock.tick(self.ticks)
 
     def set_laps(self, laps):
         self.laps = laps
@@ -65,9 +71,9 @@ class Game:
 
     def buildTrack(self, track_config):
         # Build Track
-        self.track = Track()
-        self.track.set_config(track_config)
-        # TODO : track selection (isolate track build in a method)
+        self.track = Track(0, self.width//2, self.height//2)
+        self.track.set_parameters(track_config)
+        # TODO : track selection 
         self.track.build_track()
 
     def startPygame(self):
@@ -126,7 +132,7 @@ class Game:
         return self
 
     def endGame(self):
-        return self
+        pass
 
     def draw_win(self, GEN):
         delta_big = 25
@@ -179,6 +185,8 @@ class Game:
             self.screen.blit(text, (self.width-text.get_width() - 10,
                                     delta_big * (4) + delta_little * (r+4)))
 
+    # TODO rename method to update sensor
+    # TODO create a sensor class
     def distance_to_track(self, sensor,
                           intersection_points,
                           o_pt,
@@ -274,4 +282,8 @@ class Game:
         return nets
 
     def reset(self):
-        pass
+        self.__init__()
+        self.generation = 1
+        # init lap numbers
+        self.set_laps(30)
+
