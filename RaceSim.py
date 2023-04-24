@@ -6,6 +6,7 @@ import pygame.freetype
 from pygame.math import Vector2
 from racesim.src.constants import (BAD_GENOME_THRESHOLD, DEBUG,)
 from racesim.src.game import Game
+import racesim.src.track_config
 
 # ============ Game constants ======================
 
@@ -15,9 +16,8 @@ from racesim.src.game import Game
 def game_init():
     # Start the Game (build track)
     # Build Track
-    # TODO : track selection (isolate track build in a method)
-    game.track.build_track()
-    # game.startGame()
+    # TODO : track selection
+    game.build_track(racesim.src.track_config.trackConfig())
     game_reset()
 
 
@@ -133,7 +133,7 @@ def generation_iteration(genomes, config):
     game.best_lap_Distance = 0
     are_we_alone = False
     game.updateScore(0.0)
-    track_length = game.track.get_track_lenght()
+    track_length = game.track.get_track_length()
     # Loop
     while not are_we_alone:
         t += 1
