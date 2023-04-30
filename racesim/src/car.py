@@ -73,14 +73,15 @@ class Car(pygame.sprite.Sprite):
         self.weight_pilot_kg = None
 
         # ======= CAR SETUP
-        self.sensor_front_distance = 1200
-        self.sensor_lateral_distance = 500
+        self.sensor_front_distance = 1200   # 120.0 m
+        self.sensor_lateral_distance = 500  # 50.0  m
         # ======= PERFORMANCE ======
         # TODO load car profiles & calculate limits dynamically
         self.max_acceleration = 196.1  # 19.61 m/s2 = 2G of acceleration
         self.max_steering = max_steering  # [deg]
         self.max_speed = 1028  # (1028px/s => 102.8m/s = 370km/h)
         # TODO Dynamic 5.7G =55,9 m/s2 from real data in 2020
+        # TODOupdate date to 2023
         self.brake_deceleration = 559  # [px/s-2]
         # TODO self.free_deceleration integrate dynamically
         # calculated w/drag coef in fonction of speed
@@ -250,8 +251,11 @@ class Car(pygame.sprite.Sprite):
         # Compute the angular velocity
         angular_velocity = new_velocity*tan(steering_angle) / self.wheelbase
 
-    def update_acceleration(self, dt):
-        pass
+    def update_acceleration(self, dt, command):
+        self.acceleration = (72.0927*np.log(118.4362*command - 33.5337) - 124.974)*dt
+        # self.acceleration += 10 * dt
+        self.acceleration = max(-self.max_acceleration,
+                                min(self.max_acceleration, self.acceleration))
 
     def update_position(self, dt):
         # Compute the final state using the discrete time model
@@ -309,15 +313,13 @@ class Car(pygame.sprite.Sprite):
         # brake force according driver force, driver fitness
         # and brake force of the car
         # TODO add model of acceleration / brake change
+        
         if self.commands[0] <= -0.33:  # from -1.0 to -0.66 ==> BRAKE
             self.acceleration = (-self.brake_deceleration
-                                 if abs(self.velocity.length()) > dt * self.brake_deceleration
-                                 else -self.velocity.length() / dt
-                                 )
-        elif self.commands[0] >= 0.33:  # from -0.33 to 1.0 ==> ACCELERATE
-            self.acceleration += 10 * dt
-            self.acceleration = max(-self.max_acceleration,
-                                    min(self.max_acceleration, self.acceleration))
+                                 if abs(self.velocity.x) > dt * self.brake_deceleration
+                                 else -self.velocity.x / dt)
+        elif self.commands[0] >= 0.33:  # from 0.33 to 1.0 ==> ACCELERATE
+            self.update_acceleration(dt, self.command[0])
         else:
             # if dt != 0:
             # if abs(self.velocity.length()) > dt * self.free_deceleration:

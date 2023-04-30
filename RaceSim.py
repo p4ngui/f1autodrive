@@ -1,6 +1,5 @@
 import os
 import neat
-import racesim.util.visualize as visualize
 import pygame
 import pygame.freetype
 from pygame.math import Vector2
@@ -11,44 +10,6 @@ import racesim.src.track_config
 # ============ Game constants ======================
 
 # TODO: create driver class
-
-
-def game_reset():
-    game.__init__()
-    game.generation += 1
-    game.set_clock()
-    # init lap numbers
-    game.set_laps(30)
-    # game.cars = []
-    # game.laps = []
-    # game.max_laps = 0
-    # game.best_lap = 0
-    # game.racetime = 0
-
-    # # AI
-    # # game.generation = 0
-    # game.nets = []
-    # # game.ge = []
-    # game.NNs = []
-    # # game.updateScore(0)
-    # game.bestCarPos = Vector2(-game.width // 2, -game.height // 2)
-    # # game.bestCarDistance = 0.0
-    # # game.bestCommands = None
-    # # game.bestInputs = None
-    # # game.bestGenome = None
-    # # game.bestNN = None
-
-
-def game_stats(config, stats):
-    stats.save()
-    unique_genomes = stats.best_unique_genomes(5)
-    assert 1 <= len(unique_genomes) <= 5, "Unique genomes: {!r}".format(unique_genomes)
-    genomes = stats.best_genomes(5)
-    assert 1 <= len(genomes) <= 5, "Genomes: {!r}".format(genomes)
-    stats.best_genome()
-    # visualize.draw_net(config, genomes[0], True)
-    visualize.plot_stats(stats, ylog=False, view=True)
-    visualize.plot_species(stats, view=True)
 
 
 def neat_init(checkpoint_iterval: int = 5,
@@ -110,7 +71,7 @@ def genome_evaluation(genomes, config):
     pass
 
 # TODO eval genome => car net
-#       car fitnnes todo
+#       car fitness todo
 # TODO Build track inly on restart or star game ot iteration
 
 
@@ -124,8 +85,7 @@ def generation_iteration(genomes, config):
     # init Track
     # Build Track
     # TODO : track selection
-    game.reset()
-    game.buildTrack(racesim.src.track_config.trackConfig())
+    game.soft_reset()
     # setup cars
     # start car engins
     # Start Race
@@ -139,10 +99,9 @@ def generation_iteration(genomes, config):
     t = 0
     game.set_clock(60)
     # Loop
+    # TODO add terminator when race laps are reached
     while not are_we_alone:
         t += 1
-        # ======== init crono ===========
-        dt = game.clock.tick(game.ticks) / 1000
         # ======== Event queue ==========
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -152,7 +111,9 @@ def generation_iteration(genomes, config):
                 print(f"Events : {event}")
         # ======== User input ===========
         pressed = pygame.key.get_pressed()
-        keystrokes_manager(pressed, game, config, stats)
+        # ======== init crono ===========
+        dt = game.clock.tick(game.ticks) / 1000
+        game.main_keystrokes_manager(pressed, config, stats)
         k = 0
         game.best_local = 0.0
         while (k < len(game.cars)):
@@ -169,25 +130,17 @@ def generation_iteration(genomes, config):
                 inputs = game.getInputs(sensors,
                                         game.cars[k].sensor_front_distance,
                                         game.cars[k].sensor_lateral_distance, car_pos)
-                if game.cars[k].velocity.length() > 0:
-                    game.cars[k].velocity.scale_to_length(max(10e-1,
-                                                              min(game.cars[k].max_speed,
-                                                                  game.cars[k].velocity.length())))
+                if game.cars[k].velocity.x > 0:
+                    game.cars[k].velocity.max(0, min(game.cars[k].max_speed, game.cars[k].velocity.x))
                 else:
-                    game.cars[k].velocity = Vector2(10e-1, 10e-1)
-                inputs.append(game.cars[k].velocity.length()/game.cars[k].max_speed)
+                    game.cars[k].velocity = Vector2(0, 0)
+                inputs.append(game.cars[k].velocity.x/game.cars[k].max_speed)
                 # inputs.append(game.cars[k].angle/180)
 
-                print(inputs) if DEBUG else None
-                if print_inp := False:
-                    print(inputs)
-                    print_inp = False
                 car_lap_distance_old = game.cars[k].lap_distance
-                print("Old position : ",
-                      car_pos.length(),
-                      game.cars[k].velocity.length()) if DEBUG else None
+
                 # Apply car actions for AI Inputs
-                game.cars[k].commands = nets[k].activate(tuple(inputs))
+                game.cars[k].commands = game.cars[k].pilot_ia.activate(tuple(inputs))
                 game.cars[k].move(dt)
                 # Update car vel, accel, lap_distance, .... after AI actions
                 (x, y) = game.cars[k].update(dt)
@@ -300,7 +253,7 @@ if __name__ == '__main__':
     pygame.font.init()
     # Create the game environment
     game = Game()
-
+    game.buildTrack(racesim.src.track_config.trackConfig())
     # init AI
     RESTORE = False
     CHECKPOINT_INTERVAL = 5

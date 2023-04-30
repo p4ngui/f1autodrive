@@ -9,7 +9,7 @@ from shapely.geometry.polygon import Point
 import racesim.src.NNdraw
 from racesim.src.track import Track
 from racesim.src.constants import (BLACK, DARK_GRAY, GREEN, NODE_FONT, STAT_FONT)
-
+import racesim.util.visualize as visualize
 import neat
 
 
@@ -281,9 +281,60 @@ class Game:
             # g.fitness = 0
         return nets
 
-    def reset(self):
-        self.__init__()
-        self.generation = 1
+    def soft_reset(self):
+        # self.generation += 1
+        self.set_clock()
         # init lap numbers
         self.set_laps(30)
+        self.cars = []
+        self.laps = []
+        self.max_laps = 0
+        self.best_lap = 0
+        self.racetime = 0
 
+        # AI
+        self.generation = 0
+        self.nets = []
+        # self.ge = []
+        self.NNs = []
+        # self.updateScore(0)
+        self.bestCarPos = Vector2(-self.width // 2, -self.height // 2)
+        # self.bestCarDistance = 0.0
+        # self.bestCommands = None
+        # self.bestInputs = None
+        # self.bestGenome = None
+        # self.bestNN = None
+
+    def main_keystrokes_manager(self, pressed, config, stats):
+        if pressed[pygame.K_q]:
+            self.endRace
+            self.game_stats(config, stats)
+            pygame.quit()
+        if pressed[pygame.K_r]:
+            self.game_stats(config, stats)
+        if pressed[pygame.K_f]:
+            self.screen.blit(self.track.mask.to_surface(), self.track.center)
+            pygame.display.flip()
+        if pressed[pygame.K_s]:
+            pygame.image.save(self.track.image, 'track.png')
+        if pressed[pygame.K_v]:
+            for z, _ in enumerate(self.cars):
+                self.cars[z].max_speed = self.cars[z].max_speed * 1.05
+        if pressed[pygame.K_b]:
+            for z, _ in enumerate(self.cars):
+                self.cars[z].max_speed = self.cars[z].max_speed * 0.95
+        if pressed[pygame.K_d]:
+            self.show_sensor = not self.show_sensor
+        if pressed[pygame.K_p]:
+            Mouse_x, Mouse_y = pygame
+
+    def game_stats(self, stats):
+        stats.save()
+        unique_genomes = stats.best_unique_genomes(5)
+        assert 1 <= len(unique_genomes) <= 5, "Unique genomes: {!r}".format(unique_genomes)
+        genomes = stats.best_genomes(5)
+        assert 1 <= len(genomes) <= 5, "Genomes: {!r}".format(genomes)
+        stats.best_genome()
+        # visualize.draw_net(config, genomes[0], True)
+        visualize.plot_stats(stats, ylog=False, view=True)
+        visualize.plot_species(stats, view=True)

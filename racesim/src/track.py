@@ -23,7 +23,7 @@ class Track(pygame.sprite.Sprite):
         self.img_from_file = False
         self.filename_prefix = None
         self.images_path = os.path.join(local_dir, "img")
-        
+
         # TODO x & y var are to rework, they are'nt used as due
         self.x = int(center_x)
         self.y = int(center_y)
@@ -58,7 +58,7 @@ class Track(pygame.sprite.Sprite):
             self.scale_track()
             self.vectorize_track()
 
-        # Build track from vecots to img
+        # Build track from vectors to img
         self.orig_image = pygame.Surface(
             (self.track_width,
              self.track_height),
@@ -116,7 +116,7 @@ class Track(pygame.sprite.Sprite):
              self.track_height),
             pygame.SRCALPHA)
         self.imagetmp.fill(DARK_GRAY)
-        # merge fina image & saveit
+        # merge final image & save it
         self.imagetmp.blit(self.image, (0, 0))
         self.image = self.imagetmp
         self.imagetmp = None
