@@ -4,7 +4,7 @@ py.font.init()
 
 # =================== General constants =========================
 DEBUG = False
-FPS = 40
+FPS = 60
 WIN_WIDTH = 700
 WIN_HEIGHT = 860
 STARTING_POS = (WIN_WIDTH/2, WIN_HEIGHT-100)
@@ -16,7 +16,7 @@ INPUT_NEURONS = 6  # 9
 OUTPUT_NEURONS = 2
 
 # ================== SEASON SETTINGS =============================
-SEASON = 2020
+SEASON = 2023
 # =================== Car Specs ==================================
 
 CAR_DBG = True
@@ -28,6 +28,10 @@ BRAKE_STRENGTH = 1.5
 TURN_VEL = 3.5
 SENSOR_DISTANCE = 300  # distance in px 1m = 10px
 ACTIVATION_THRESHOLD = 0.5
+MMTOMETERS = 1/1000
+STEERING_THRESHOLD = 0.01
+STEERING_SPEED = 17.5
+PPM = 10  # Pixels per meter (conversion scale)
 
 # =================== TRACK Specs ==================================
 

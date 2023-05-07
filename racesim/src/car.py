@@ -2,7 +2,10 @@ import pygame
 from pygame.math import Vector2
 from math import radians, degrees, sin, cos
 from shapely.geometry import LineString
-from racesim.src.constants import ACC, BRAKE, STEER, THROTTLE, TURN_LEFT, TURN_RIGHT
+from shapely.geometry.polygon import Point
+from racesim.src.constants import ACC, BRAKE, TURN_LEFT, TURN_RIGHT
+from racesim.src.constants import PPM, MMTOMETERS
+from racesim.src.constants import STEERING_SPEED, STEERING_THRESHOLD
 import racesim.src.gearbox
 import racesim.src.tires
 import os
@@ -29,12 +32,12 @@ class Car(pygame.sprite.Sprite):
 
     def __init__(self, x, y,
                  angle=0.0,
-                 velocity=Vector2(0.1, 0.1),
+                 velocity=Vector2(0.0, 0.0),
                  acceleration=0,
-                 length=54,
-                 width=20,
+                 length=5.4,
+                 width=2,
                  max_steering=30,
-                 max_acceleration=5.0,
+                 max_acceleration=35.0,
                  team="Mercedes",
                  driver="HAM"):
 
@@ -47,26 +50,32 @@ class Car(pygame.sprite.Sprite):
         self.position = Vector2(x, y)
         self.rect.center = self.position
         self.pilot_ia = None
+        self.genome = None
         self.angle = angle
         self.velocity = velocity
-
+        self.angular_velocity: float = 0.0
+        self.track_offset_x = None
+        self.track_offset_y = None
         # ======= CAR DIMENSIONS
-        self.width = width
-        self.length = length
+        self.width = width * PPM
+        self.length = length * PPM
         # regalmentary F1 2020 axes max distance §3.2.2 FIA
         #  McLaren	    5400	2000	950  600:2000 (3.3mm/px), 1405:5400(3.29263mm/px)
         #                  mesures from jpg  350:1410 px
         # 1405px:5400mm
         # 302px  195px
         # 1160.71mm    3489.82mm 749.47mm
-        #   |   Front                                   Rear    |
-        #   |<-- 1161 --->| <--------- 3490 ------->|<-- 749 --->| mm
+        # (0,0) front of car                   pivot point
+        #   |   Front     |                         |    Rear    |
+        #   |<-- 1161 --->|<---------- 3490 ------->|<-- 749 --->| mm
         #   |___________(_|_)_____________________(_|_)__________|
-        self.wheel_rear_axe_center = Vector2(8.10, self.width/2)
-        self.wheel_front_axe_center = Vector2(self.length - 12.25, self.width/2)
-        self.wheel_axe_distance = self.length - (11.5244 + 7.5732)
+        self.wheel_rear_axe_center = Vector2(749*MMTOMETERS*PPM, self.width/2)
+        self.wheel_front_axe_center = Vector2(self.length - 1161*PPM*MMTOMETERS,
+                                              self.width/2)
+        self.wheel_axe_distance = self.length - (1161 + 749) * PPM * MMTOMETERS
         self.center = Vector2(self.length/2, self.width/2)
         self.gravity_center = None
+        # ======= Mass in Kg
         self.mass_gravity = None
         self.weight_empty_kg = None
         self.width_fuel_kg = None
@@ -77,8 +86,8 @@ class Car(pygame.sprite.Sprite):
         self.sensor_lateral_distance = 500  # 50.0  m
         # ======= PERFORMANCE ======
         # TODO load car profiles & calculate limits dynamically
-        self.max_acceleration = 196.1  # 19.61 m/s2 = 2G of acceleration
-        self.max_steering = max_steering  # [deg]
+        self.max_acceleration: float = 196.1  # 19.61 m/s2 = 2G of acceleration
+        self.max_steering: float = max_steering  # [deg]
         self.max_speed = 1028  # (1028px/s => 102.8m/s = 370km/h)
         # TODO Dynamic 5.7G =55,9 m/s2 from real data in 2020
         # TODOupdate date to 2023
@@ -88,34 +97,43 @@ class Car(pygame.sprite.Sprite):
         self.free_deceleration = 10  # [px/s-2]
         # ======= Live data =======
         self.commands = [0, 0]  # [0, 0, 0, 0]
-        self.acceleration = acceleration
-        self.steering = 0.0
-        self.camera = Vector2(0, 0)  # Assigned the camera as an attribute.
-        self.lap_start_time = 0.0
+        self.acceleration: float = acceleration
+        self.steering: float = 0.0  # in [°] degrees
+        self.camera: Vector2 = Vector2(0, 0)  # Assigned the camera as an attribute.
+        self.lap_start_time: float = 0.0
         self.laptimes = []
-        self.lap_number = 0
-        self.lap_distance = 0.0
-        if self.velocity.length() > self.max_speed:
-            self.velocity.scale_to_length(self.max_speed)
+        self.lap_number: int = 0
+        self.lap_distance: float = 0.0
+        self.velocity.x = min(self.velocity.x, self.max_speed)
         # TODO verify if acceleration is lower or = to max accel
-        self.is_out = False
-        self.car_no = None
+        self.is_out: bool = False
+        self.car_no: int = None
+        self.sensors = []
+        self.inputs = []
         # TODO initialise this vas from game
         # HINT: parameters are per team, not manufacturer!
         # drivetype:                [-] combustion or electric (hybrid is treated as combustion)
         # manufacturer:             [-] manufacturer
         # t_car:                    [s] time loss per lap due to car abilities
         # m_fuel:                   [kg] fuel mass at start (combustion -> set null otherwise)
-        # b_fuel_perlap:            [kg/lap] fuel mass consumption per lap (combustion -> set null otherwise)
+        # b_fuel_per_lap:           [kg/lap] fuel mass consumption per lap (combustion -> set null
+        #                           otherwise)
         # energy:                   [kWh] energy at start (electric -> set null otherwise)
-        # energy_perlap:            [kWh/lap] energy consumption per lap (electric -> set null otherwise)
-        # mult_consumption_sc:      [-] multiplier for the fuel/energy consumption under an SC phase (range[0,1])
-        # mult_consumption_fcy:     [-] multiplier for the fuel/energy consumption under an FCY phase (range[0,1])
-        # auto_consumption_adjust:  [-] automatic adjustment of fuel/energy consumption such that car runs out of fuel at the
-        #                           end of the race, increases consumption after FCY phases (cannot decrease consumption!)
+        # energy_per_lap:           [kWh/lap] energy consumption per lap (electric -> set null
+        #                               otherwise)
+        # mult_consumption_sc:      [-] multiplier for the fuel/energy consumption under an SC
+        #                               phase (range[0,1])
+        # mult_consumption_fcy:     [-] multiplier for the fuel/energy consumption under an FCY
+        #                               phase (range[0,1])
+        # auto_consumption_adjust:  [-] automatic adjustment of fuel/energy consumption such that
+        #                               car runs out of fuel at the
+        #                           end of the race, increases consumption after FCY phases (cannot
+        #                           decrease consumption!)
         # t_pit_tirechange_add:     [s] team-specific additional standstill time to change tires
-        # t_pit_refuel_perkg:       [s/kg] time per fuel added in pit (set null if there is no refueling) (combustion)
-        # t_pit_charge_perkwh:      [s/kWh] time per kWh energy added in pit (set null if there is no recharging) (electric)
+        # t_pit_refuel_perkg:       [s/kg] time per fuel added in pit (set null if there is no
+        #                                  refueling) (combustion)
+        # t_pit_charge_perkwh:      [s/kWh] time per kWh energy added in pit (set null if there is
+        #                                   no recharging) (electric)
         # color:                    [-] hex color code of the team for plotting
         self.car_pars = {"Mercedes":
                          {"drivetype": "combustion",
@@ -186,10 +204,93 @@ class Car(pygame.sprite.Sprite):
         #                                        self.velocity.length()))
 
     def set_ia(self, net):
-        self.pilot_ia(net)
+        self.pilot_ia = net
 
-    def get_ia_actions(self, inputs):
-        return self.pilot_ia.activate(input)
+    def set_genome(self, g):
+        self.genome = g
+
+    def set_velocity(self, new_velocity):
+        self.velocity.x = max(0, min(self.max_speed,
+                                     new_velocity))
+
+    def set_track_offset(self, x, y) -> None:
+        self.track_offset_x = x
+        self.track_offset_y = y
+
+    def get_car_pos(self):
+        return Vector2(self.position.x + self.track_offset_x,
+                       self.position.y + self.track_offset_y)
+
+    def get_normal_velocity(self):
+        return self.velocity.x/self.max_speed
+
+    def gen_ia_actions(self, track_left_line: LineString, track_right_line: LineString):
+        self.update_sensors()
+        self.gen_inputs(track_left_line, track_right_line)
+        # inp = [1 - self.inputs[i] for i in range(len(self.inputs)-1)]
+        # inp.append(self.inputs[5])
+        self.commands = self.pilot_ia.activate(self.inputs)
+        # return self.pilot_ia.activate(inputs)
+
+    def gen_inputs(self, track_left_line: LineString, track_right_line: LineString):
+        self.inputs = []
+        car_pos = Point(self.get_car_pos())
+        for m, sensor in enumerate(self.sensors):
+            left_intersection_points = track_left_line.intersection(sensor)
+            right_intersection_points = track_right_line.intersection(sensor)
+            dl = self.distance_to_track(sensor, left_intersection_points, car_pos,
+                                        self.sensor_front_distance, self.sensor_lateral_distance, m)
+            dr = self.distance_to_track(sensor, right_intersection_points, car_pos,
+                                        self.sensor_front_distance, self.sensor_lateral_distance, m)
+            self.inputs.append(min(dl, dr))
+        self.inputs[0] = 1 - (self.inputs[0] / self.sensor_lateral_distance)
+        self.inputs[4] = 1 - (self.inputs[4] / self.sensor_lateral_distance)
+        self.inputs[1] = 1 - (self.inputs[1] / self.sensor_lateral_distance)
+        self.inputs[3] = 1 - (self.inputs[3] / self.sensor_lateral_distance)
+        self.inputs[2] = 1 - (self.inputs[2] / self.sensor_front_distance)
+        self.inputs.append(self.get_normal_velocity())
+
+    def distance_to_track(self, sensor,
+                          intersection_points,
+                          o_pt,
+                          sensor_front_distance,
+                          sensor_lateral_distance,
+                          m):
+        if intersection_points.geom_type == "MultiPoint":
+            a = {o_pt.distance(pt): pt for pt in intersection_points.geoms}
+            intersection_points = a[min(a.keys())]
+        if not intersection_points.is_empty:
+            return sensor.project(intersection_points)
+        else:
+            return sensor_lateral_distance if m in [0, 1, 3, 4] else sensor_front_distance
+
+    def update_sensors(self):
+        cur_pos = self.get_car_pos()
+        self.sensors = []
+        count = 180
+        for i in np.arange(4, -1, -1):
+            dist = self.sensor_front_distance if i == 2 else self.sensor_lateral_distance
+            omega = -radians(self.angle + count - 180)
+            count -= 60 if i in [4, 1] else 30
+            dx = dist * sin(omega)
+            dy = - dist * cos(omega)
+            self.sensors.append(
+                LineString(
+                    [(cur_pos.x,
+                      cur_pos.y),
+                     (cur_pos.x + dx,
+                      cur_pos.y + dy)
+                     ]))
+        # return sensors
+
+    def detect_collision(self, mask, offset_x, offset_y):
+        rect = self.mask.get_rect()
+        mask_nb_bits_overlap = mask.overlap_mask(
+            self.mask, (int(offset_x + self.position.x - rect.center[0]),
+                        int(offset_y + self.position.y - rect.center[1])
+                        )).count()
+
+        return ((self.mask.count() - mask_nb_bits_overlap) > 50)
 
     def loadImage(self):
         # TODO : add random load on create or a color type by tag parameter
@@ -198,24 +299,6 @@ class Car(pygame.sprite.Sprite):
             pygame.image.load(os.path.join(self.images_path, 'F1_black_s.png')
                               ).convert_alpha(), (57, 20)), 0)
         return image
-
-    def getSensors(self, cur_pos):
-        sensors = []
-        count = 180
-        for i in np.arange(4, -1, -1):
-            dist = self.sensor_front_distance if i == 2 else self.sensor_lateral_distance
-            omega = -radians(self.angle + count - 180)
-            count -= 60 if i in [4, 1] else 30
-            dx = dist * sin(omega)
-            dy = - dist * cos(omega)
-            sensors.append(
-                LineString(
-                    [(cur_pos.x,
-                      cur_pos.y),
-                     (cur_pos.x + dx,
-                      cur_pos.y + dy)
-                     ]))
-        return sensors
 
     def update_velocity(self, dt):
 
@@ -234,7 +317,7 @@ class Car(pygame.sprite.Sprite):
         y (int) : vehicle's y-coordinate [m]
         yaw (int) : vehicle's heading [rad]
         velocity (int) : vehicle's velocity in the x-axis [m/s]
-        acceleration (int) : vehicle's accleration [m/s^2]
+        acceleration (int) : vehicle's acceleration [m/s^2]
         steering_angle (int) : vehicle's steering angle [rad]
         Returns
         -------
@@ -247,50 +330,88 @@ class Car(pygame.sprite.Sprite):
         # Compute the local velocity in the x-axis
         new_velocity = velocity + self.delta_time * acceleration
         """
-        new_velocity = velocity + self.delta_time * acceleration
+        # new_velocity = self.velocity + self.acceleration
         # Compute the angular velocity
-        angular_velocity = new_velocity*tan(steering_angle) / self.wheelbase
+        # angular_velocity = new_velocity*tan(steering_angle) / self.wheelbase
+        # self.velocity.x = max(self.velocity.x + 1 * self.acceleration * dt, 0)
+        # max(min(maxn, n), minn)
+        self.velocity += (self.acceleration * dt, 0)
+        self.velocity.x = max(-self.max_speed, min(self.velocity.x, self.max_speed))
+        self.velocity.x = max(self.velocity.x, 0)
 
     def update_acceleration(self, dt, command):
-        self.acceleration = (72.0927*np.log(118.4362*command - 33.5337) - 124.974)*dt
-        # self.acceleration += 10 * dt
-        self.acceleration = max(-self.max_acceleration,
-                                min(self.max_acceleration, self.acceleration))
+        threshold = 0.05
+        if command <= -threshold:  # from -1.0 to -0.66 ==> BRAKE
+            self.acceleration = (-self.brake_deceleration
+                                 if abs(self.velocity.x) > dt * self.brake_deceleration
+                                 else -self.velocity.x / dt)
+        elif command >= threshold:  # from 0.33 to 1.0 ==> ACCELERATE
+            # self.acceleration = (72.0927 * np.log(118.4362*command - 33.5337) - 124.974)*dt
+            self.acceleration += 1 * dt
+            self.acceleration = max(-self.max_acceleration,
+                                    min(self.max_acceleration, self.acceleration))
+        else:
+            self.acceleration = -self.free_deceleration
 
     def update_position(self, dt):
         # Compute the final state using the discrete time model
-        new_x   = x + velocity*cos(yaw)*self.delta_time
-        new_y   = y + velocity*sin(yaw)*self.delta_time
-        new_yaw = normalise_angle(yaw + angular_velocity*self.delta_time)
+        new_x   = self.position.x + self.velocity.x * cos(self.angle) * dt
+        new_y   = self.position.y + self.velocity.x * sin(self.angle) * dt
+        new_yaw = normalise_angle(self.angle + self.angular_velocity * dt)
 
-    def update_camera(self,dt):
+    def update_camera(self, dt):
         pass
 
     def update_steering_angle(self, dt):
-        # Limit steering angle to physical vehicle limits
-        steering_angle = (
-            -self.max_steer
-            if steering_angle < -self.max_steer
-            else min(steering_angle, self.max_steer)
-        )
+        # self.steering is angel in deg [°] deg
+        # steering left
 
-    def update(self, dt):
-        self.velocity.scale_to_length(max(self.velocity.length() + 1 * self.acceleration * dt, 10e-1))
-        # max(min(maxn, n), minn)
-        if self.velocity.length() > 0:
-            self.velocity.scale_to_length(max(10e-1, min(self.max_speed, self.velocity.length())))
+        if self.commands[1] <= -STEERING_THRESHOLD:
+            self.steering -= STEERING_SPEED * dt
+            self.steering = max(self.steering, -self.max_steering)
+        # steering right
+        elif self.commands[1] >= STEERING_THRESHOLD:
+            self.steering += STEERING_SPEED * dt
+            self.steering = min(self.steering, self.max_steering)
         else:
-            self.velocity = Vector2(10e-1, 10e-1)
-        self.lap_distance += self.velocity.length() * dt / 1000
+            self.steering = 0.0
+        # # Limit steering angle to physical vehicle limits
+        # self.steering = max(-self.max_steering,
+        #                     min(self.max_steering, self.steering))
+
+    def update_angular_velocity(self):
         if self.steering:
             turning_radius = self.wheel_axe_distance / sin(radians(self.steering))
-            angular_velocity = self.velocity.length() / turning_radius
+            self.angular_velocity = self.velocity.x / turning_radius
         else:
-            angular_velocity = 0
-        self.angle += degrees(angular_velocity) * dt
-        vel = self.velocity.rotate(-self.angle)
+            self.angular_velocity = 0
+
+    def update_fitness(self, add_to_fitness):
+        self.genome.fitness += add_to_fitness
+
+    def update(self, dt):
+        # TODO change Acceleration by throttle
+        # add model to convert throttle in acceleration
+        # find right gear (add delay to get the right gear)
+        # and accelerate according throttle position
+        # and power delivered by engine + gearbox + road grip coef
+        # to the Tyre with Tyre group surface ....
+        # TODO idem for brake output will be brake position
+        # add model to transform brake pedal position into
+        # brake force according driver force, driver fitness
+        # and brake force of the car
+        # TODO add model of acceleration / brake change
+
+        self.update_acceleration(dt, self.commands[0])
+        self.update_velocity(dt)
+        self.update_steering_angle(dt)
+        # TODO rename lap_distance by traveled_distance
+        self.lap_distance += self.velocity.x * dt / 1000
+        self.update_angular_velocity()
+        vel = self.velocity.rotate(-self.angle) * dt
         self.position += vel
         self.camera += vel  # Update the camera position as well.
+        self.angle += degrees(self.angular_velocity) * dt
         # If you use the rect as the blit position, you should update it, too.
         self.rect.center = self.position
 
@@ -300,86 +421,6 @@ class Car(pygame.sprite.Sprite):
         self.mask = pygame.mask.from_surface(self.image)
         # game.car_group.rect = self.image.get_rect(center=self.rect.center)
         return (self.position.x, self.position.y)
-
-    def move(self, dt):
-        # TODO change Acceleration by trothle
-        # add model to convert trottle in acceleration
-        # find rigth gear (add delay to get the right gear)
-        # and accelerate according throtle possition
-        # and power delivered by engine + gearbox + road grip coef
-        # to the tyre with tyre grup surfase ....
-        # TODO idem for braek outpul will be brake possition
-        # add model to tranform brake pedal position into
-        # brake force according driver force, driver fitness
-        # and brake force of the car
-        # TODO add model of acceleration / brake change
-        
-        if self.commands[0] <= -0.33:  # from -1.0 to -0.66 ==> BRAKE
-            self.acceleration = (-self.brake_deceleration
-                                 if abs(self.velocity.x) > dt * self.brake_deceleration
-                                 else -self.velocity.x / dt)
-        elif self.commands[0] >= 0.33:  # from 0.33 to 1.0 ==> ACCELERATE
-            self.update_acceleration(dt, self.command[0])
-        else:
-            # if dt != 0:
-            # if abs(self.velocity.length()) > dt * self.free_deceleration:
-            self.acceleration = -self.free_deceleration
-            # self.acceleration = -self.velocity.length() / dt
-            # self.acceleration = max(-self.max_acceleration,
-            #                         min(self.acceleration, self.max_acceleration)
-            # )
-        if self.commands[1] <= -0.33:  # from -1.0 to -0.66 ==> TURN RIGHT
-            self.steering -= 7.5 * dt
-        elif self.commands[1] >= 0.33:  # from -0.33 to 1.0 ==> TURN LEFT
-            self.steering += 7.5 * dt
-        else:  # from -0.67 to -0.33 ==> Go STRAIGHT
-            self.steering = 0
-
-        # if decodeCommand(self.commands, ACC):
-        #     # if self.velocity.length() < 0:
-        #     #     self.acceleration = self.brake_deceleration
-        #     # else:
-        #     self.acceleration += 1 * dt
-        #     self.acceleration = max(-self.max_acceleration,
-        #                             min(self.max_acceleration, self.acceleration))
-        #         # TODO add model of accelartion change
-        # elif decodeCommand(self.commands, BRAKE):
-        #     if abs(self.velocity.length()) > dt * self.brake_deceleration:
-        #         self.acceleration = -self.brake_deceleration
-        #     else:
-        #         self.acceleration = -self.velocity.length() / dt
-        # else:
-        #     if abs(self.velocity.length()) > dt * self.free_deceleration:
-        #         self.acceleration = -self.free_deceleration
-        #     else:
-        #         if dt != 0:
-        #             self.acceleration = -self.velocity.length() / dt
-        #             self.acceleration = max(-self.max_acceleration,
-        #                                     min(self.acceleration,
-        #                                         self.max_acceleration))
-        # if decodeCommand(self.commands, TURN_RIGHT):
-        #     self.steering -= 7.5 * dt
-        # elif decodeCommand(self.commands, TURN_LEFT):
-        #     self.steering += 7.5 * dt
-        # else:
-        #     self.steering = 0
-        # if self.decodeCommand(self.commands, TURN_RIGHT
-        #                  ) or decodeCommand(self.commands, TURN_LEFT):
-        #     self.steering = max(-self.max_steering, min(self.steering,
-        #                                                 self.max_steering))
-
-    # def decodeCommand(self, commands, type):
-    #     if type == ACC and commands[type] >= 0.5 and commands[type] > commands[BRAKE]:
-    #         return True
-    #     elif type == BRAKE and commands[type] >= 0.5 and commands[type] > commands[ACC]:
-    #         return True
-    #     elif type == TURN_LEFT and commands[type] >= 0.5 and commands[type] > commands[
-    #             TURN_RIGHT]:
-    #         return True
-    #     elif type == TURN_RIGHT and commands[type] >= 0.5 and commands[type] > commands[
-    #             TURN_LEFT]:
-    #         return True
-    #     return False
 
     def change_tires(self, compound: str, age: int, tireset_pars: dict):
         """

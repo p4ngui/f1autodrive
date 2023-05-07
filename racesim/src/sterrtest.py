@@ -22,13 +22,11 @@ class Car:
     def update(self, dt):
         self.velocity += (self.acceleration * dt, 0)
         self.velocity.x = max(-self.max_velocity, min(self.velocity.x, self.max_velocity))
-
         if self.steering:
             turning_radius = self.length / sin(radians(self.steering))
             angular_velocity = self.velocity.x / turning_radius
         else:
             angular_velocity = 0
-
         self.position += self.velocity.rotate(-self.angle) * dt
         self.angle += degrees(angular_velocity) * dt
 

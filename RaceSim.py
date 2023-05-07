@@ -1,11 +1,12 @@
 import os
+
 import neat
 import pygame
 import pygame.freetype
 from pygame.math import Vector2
-from racesim.src.constants import (BAD_GENOME_THRESHOLD, DEBUG,)
-from racesim.src.game import Game
+
 import racesim.src.track_config
+from racesim.src.game import Game
 
 # ============ Game constants ======================
 
@@ -20,7 +21,8 @@ def neat_init(checkpoint_iterval: int = 5,
         # p = neat.Checkpointer.restore_checkpoint(
         # 'best_neat-291-7 sensor_cnnff')
         if not checkpoint_file:
-            print("Restore is set to True, but no checkpoint file was set, consider to set a checkpoint file")
+            print("Restore is set to True, but no checkpoint file was set,\
+                  consider to set a checkpoint file")
             pygame.quit()
             exit(1)
         else:
@@ -39,32 +41,7 @@ def neat_init(checkpoint_iterval: int = 5,
     # save checkpoint each n genome iteration
     p.add_reporter(neat.Checkpointer(checkpoint_iterval))
     p.add_reporter(stats)
-    return p
-
-
-def keystrokes_manager(pressed, game, config, stats):
-    if pressed[pygame.K_q]:
-        game.endRace
-        game_stats(config, stats)
-        pygame.quit()
-    if pressed[pygame.K_r]:
-        game_stats(config, stats)
-    if pressed[pygame.K_f]:
-        game.screen.blit(game.track.mask.to_surface(), game.track.center)
-        pygame.display.flip()
-    if pressed[pygame.K_s]:
-        pygame.image.save(game.track.image, 'track.png')
-    if pressed[pygame.K_v]:
-        for z, _ in enumerate(game.cars):
-            game.cars[z].max_speed = game.cars[z].max_speed * 1.05
-    if pressed[pygame.K_b]:
-        for z, _ in enumerate(game.cars):
-            game.cars[z].max_speed = game.cars[z].max_speed * 0.95
-    if pressed[pygame.K_d]:
-        game.show_sensor = not game.show_sensor
-    if pressed[pygame.K_p]:
-        Mouse_x, Mouse_y = pygame.mouse.get_pos()
-        print(Mouse_x, Mouse_y)
+    return p, stats
 
 
 def genome_evaluation(genomes, config):
@@ -77,11 +54,8 @@ def genome_evaluation(genomes, config):
 
 def generation_iteration(genomes, config):
     # Setup Race
-    # TODO : create grid (qualif)
-    global nets
-    nets = game.create_brains(genomes, config)
     pos = Vector2(0, 0)
-
+    # TODO : create grid (qualif)
     # init Track
     # Build Track
     # TODO : track selection
@@ -94,7 +68,6 @@ def generation_iteration(genomes, config):
     game.best_lap_Distance = 0
     are_we_alone = False
     game.updateScore(0.0)
-    track_length = game.track.get_track_length()
     # TODO method to change game frequency
     t = 0
     game.set_clock(60)
@@ -102,102 +75,19 @@ def generation_iteration(genomes, config):
     # TODO add terminator when race laps are reached
     while not are_we_alone:
         t += 1
-        # ======== Event queue ==========
+        # ==x====== Event queue ==========
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 game.exit = True
                 are_we_alone = True
-            else:
-                print(f"Events : {event}")
+            # else:
+            #     print(f"Events : {event}")
         # ======== User input ===========
-        pressed = pygame.key.get_pressed()
-        # ======== init crono ===========
-        dt = game.clock.tick(game.ticks) / 1000
-        game.main_keystrokes_manager(pressed, config, stats)
-        k = 0
+        game.main_keystrokes_manager(pygame.key.get_pressed(), stats)
+        # ======== init chrono ===========
         game.best_local = 0.0
-        while (k < len(game.cars)):
-            # genomes[k][1].fitness = 0 if genomes[k][1].fitness is None else None
-            collision = False
-            if not game.cars[k].is_out:
-                car_pos = Vector2(game.cars[k].position.x + game.track.offset_x,
-                                  game.cars[k].position.y + game.track.offset_y)
-
-                # Beam detection (LIDAR)
-                sensors = game.cars[k].getSensors(car_pos)
-                inputs = []
-
-                inputs = game.getInputs(sensors,
-                                        game.cars[k].sensor_front_distance,
-                                        game.cars[k].sensor_lateral_distance, car_pos)
-                if game.cars[k].velocity.x > 0:
-                    game.cars[k].velocity.max(0, min(game.cars[k].max_speed, game.cars[k].velocity.x))
-                else:
-                    game.cars[k].velocity = Vector2(0, 0)
-                inputs.append(game.cars[k].velocity.x/game.cars[k].max_speed)
-                # inputs.append(game.cars[k].angle/180)
-
-                car_lap_distance_old = game.cars[k].lap_distance
-
-                # Apply car actions for AI Inputs
-                game.cars[k].commands = game.cars[k].pilot_ia.activate(tuple(inputs))
-                game.cars[k].move(dt)
-                # Update car vel, accel, lap_distance, .... after AI actions
-                (x, y) = game.cars[k].update(dt)
-                # Update current car vector over the track
-                car_pos = Vector2(x + game.track.offset_x,
-                                  y + game.track.offset_y)
-                # Detect Collision
-                if t > 9:
-                    collision = game.detectCollision(game.cars[k].mask,
-                                                     game.cars[k].position)
-                delta_distance = game.best_lap_Distance - game.cars[k].lap_distance
-
-                print("New position : ", car_pos.length(),
-                      game.cars[k].velocity.length(),
-                      game.cars[k].lap_distance, delta_distance) if DEBUG else None
-                # TODO :  change method of detection to remove bad genomes
-                if (t > 9) and ((collision) or (delta_distance > BAD_GENOME_THRESHOLD) or (
-                    game.cars[k].lap_distance < car_lap_distance_old
-                     ) or game.cars[k].velocity.length() < 0.1):
-                    if game.cars_inrace > 1:
-                        genomes[k][1].fitness = genomes[k][1].fitness*0.9
-                    else:
-                        genomes[k][1].fitness = genomes[k][1].fitness*1.1
-                    game.cars[k].is_out = True
-                    game.cars_inrace -= 1
-                    if game.cars_inrace == 0:
-                        k = 0
-                        break
-                else:
-                    if game.best_lap_Distance < game.cars[k].lap_distance:
-                        update_best(game, k, inputs)
-                        # game.drawsensors(sensors)
-                    if game.best_local < game.cars[k].lap_distance:
-                        game.best_local = game.cars[k].lap_distance
-                        game.best_local_pos = game.cars[k].position
-                        game.best_local_cam = game.cars[k].camera
-                        game.best_local_inputs = inputs
-                    car_current_lap_time = game.cars[k].lap_start_time.tick()/1000
-                    car_mean_speed = game.cars[k].lap_distance / car_current_lap_time
-
-                    if car_mean_speed > game.best_local_mean_speed:
-                        game.best_local_mean_speed = car_mean_speed
-                    # genomes[k][1].fitness = (game.cars[k].lap_distance / track_length) * 10000 + car_current_lap_time/6
-                    genomes[k][1].fitness = (game.cars[k].lap_distance / track_length) * 100 * car_mean_speed 
-
-                    if (genomes[k][1].fitness > game.getScore()):
-                        # print(game.ge[k].fitness,)
-                        game.updateScore(genomes[k][1].fitness)
-                        game.bestNN = game.NNs[k]
-                        game.bestCarDistance = game.cars[k].lap_distance
-                        game.bestCarPos = game.cars[k].camera
-            k += 1
-
-            if game.cars_inrace == 0:
-                break
-                # print(car.position, car.camera,
-                #       car.rect.topleft, car.rect.center) if car.is_out else None
+        dt = game.clock.tick(game.ticks) / 1000
+        game.updateCars(dt, t)
         pos.x = game.best_local_cam.x + game.track.offset_x
         pos.y = game.best_local_cam.y + game.track.offset_y
         game.screen.blit(game.track.image, -pos)
@@ -237,16 +127,6 @@ def generation_iteration(genomes, config):
     return game.best_lap_Distance
 
 
-def update_best(game, k, inputs):
-    game.best_lap_Distance = game.cars[k].lap_distance
-    game.best_lap_speed = game.cars[k].velocity.length()
-    game.best_lap_steer = game.cars[k].steering
-    game.best_lap_acceleration = game.cars[k].acceleration
-    game.bestCarPos = game.cars[k].camera
-    game.bestInputs = inputs
-    game.bestCommands = game.cars[k].commands
-
-
 if __name__ == '__main__':
     local_dir = os.path.dirname(__file__)
     GEN = 0
@@ -259,7 +139,7 @@ if __name__ == '__main__':
     CHECKPOINT_INTERVAL = 5
     stats = None
     config_path = os.path.join(local_dir, "racesim", "config", "neat_config.ini")
-    p = neat_init(CHECKPOINT_INTERVAL, RESTORE, '', config_path)
+    p, stats = neat_init(CHECKPOINT_INTERVAL, RESTORE, '', config_path)
 
     # Run AI main routine for each generation cycle util generation_iteration or dead of all species
     GENERATION_CYCLES = 100000
@@ -270,5 +150,4 @@ if __name__ == '__main__':
     pygame.quit()
 
     # TODO create a separated windows for genome,
-        #  another one for score & positions
-
+    #  another one for score & positions

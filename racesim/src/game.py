@@ -4,11 +4,11 @@ import pygame
 from pygame.math import Vector2
 import numpy as np
 from math import degrees, atan2, radians, sin, cos
-from shapely.geometry.linestring import LineString
-from shapely.geometry.polygon import Point
+# from shapely.geometry.linestring import LineString
 import racesim.src.NNdraw
 from racesim.src.track import Track
 from racesim.src.constants import (BLACK, DARK_GRAY, GREEN, NODE_FONT, STAT_FONT)
+from racesim.src.constants import BAD_GENOME_THRESHOLD
 import racesim.util.visualize as visualize
 import neat
 
@@ -73,7 +73,7 @@ class Game:
         # Build Track
         self.track = Track(0, self.width//2, self.height//2)
         self.track.set_parameters(track_config)
-        # TODO : track selection 
+        # TODO : track selection
         self.track.build_track()
 
     def startPygame(self):
@@ -84,33 +84,40 @@ class Game:
         # Prepare AI & create cars
         p = 0
         self.cars_inrace = 0
-        for id, g in genomes:
+        for p, (id, g) in enumerate(genomes):
             # F1 2023 car dimensions 5.5 m length x 2 m width
             # (scale factor 10px per Meter)
             # CAR Setup
             self.cars.append(racesim.src.car.Car(-0, -0))
-            self.cars_inrace += 1
+            self.cars[p].set_track_offset(self.track.offset_x,
+                                          self.track.offset_y)
+            # global nets
+            g.fitness = 0
+            self.cars[p].set_ia(neat.nn.FeedForwardNetwork.create(g, config))
+            self.cars[p].set_genome(g)
+            self.cars_inrace = len(self.cars)
             self.NNs.append(racesim.src.NNdraw.NN(config, g, (90, 210)))
             # TODO: add car to group.
             # TODO: add angle as init variable
-            # I center the cars @ start line.
+            # I center the cars @ start line pointing track direction
             self.cars[p].angle = -degrees(atan2(
                 self.track.track_interp_cl[1][1] - self.track.track_interp_cl[0][1],
                 self.track.track_interp_cl[1][0] - self.track.track_interp_cl[0][0])
                                  )
             # print(cars[_].angle)
-            # Start car engine
-            # self.cars[p].velocity.x = random.uniform(0, 1) * 10
-            self.cars[p].velocity.rotate_ip(self.cars[p].angle)
-            self.cars[p].velocity.x = max(1, random.uniform(0, 1) * 10 * cos(radians(self.cars[p].angle)))
-            self.cars[p].velocity.y = max(1, random.uniform(0, 1) * 10 * sin(radians(self.cars[p].angle)))
-            self.cars[p].acceleration = random.uniform(0, 1) * 10
+            # Start car engine @ random speed btw 0 - 10 px/s
+            self.cars[p].velocity.x = random.uniform(0, 1) * 10
+            # self.cars[p].velocity.rotate_ip(self.cars[p].angle)
+            # self.cars[p].velocity.x = max(1, random.uniform(0,
+            # 1) * 10 * cos(radians(self.cars[p].angle)))
+            # self.cars[p].velocity.y = max(1,
+            # random.uniform(0, 1) * 10 * sin(radians(self.cars[p].angle)))
+            self.cars[p].acceleration = random.uniform(0, 1) * 5
             # self.cars[p].max_speed = random.uniform(1.5, 2.5) * 102.8
             self.cars[p].camera = (-self.width//2, -self.height//2)
             self.cars[p].car_no = p + 1
             self.startLap(p)
             # TODO if saved genomes load them and add it to cars
-            p += 1
 
     def startLap(self, car_id):
         self.cars[car_id].lap_start_time = pygame.time.Clock()
@@ -187,48 +194,73 @@ class Game:
 
     # TODO rename method to update sensor
     # TODO create a sensor class
-    def distance_to_track(self, sensor,
-                          intersection_points,
-                          o_pt,
-                          sensor_front_distance,
-                          sensor_lateral_distance,
-                          m):
-        if intersection_points.geom_type == "MultiPoint":
-            a = {o_pt.distance(pt): pt for pt in intersection_points.geoms}
-            intersection_points = a[min(a.keys())]
-        if intersection_points.is_empty is False:
-            return sensor.project(intersection_points)
-        else:
-            return sensor_lateral_distance if m in [0, 1, 3, 4] else sensor_front_distance
 
-    def getInputs(self, sensors, sensor_front_distance, sensor_lateral_distance, car_pos):
-        inputs = []
-        car_pos = Point(car_pos)
-        for m, sensor in enumerate(sensors):
+    def updateCars(self, dt, t):
+        k = 0
+        # track_length = self.track.get_track_length()
+        for k, car in enumerate(self.cars):
+            # genomes[k][1].fitness = 0 if genomes[k][1].fitness is None else None
+            car_current_lap_time = self.cars[k].lap_start_time.tick()/1000
+            collision = False
+            # Apply car actions for AI Inputs
+            self.cars[k].gen_ia_actions(self.track.left_line, self.track.right_line)
+            car_lap_distance_old = self.cars[k].lap_distance
+            # Update car vel, accel, lap_distance, .... after AI actions
+            # Update current car vector over the track
+            (x, y) = self.cars[k].update(dt)
+            # Detect Collision
+            delta_distance = self.cars[k].lap_distance - car_lap_distance_old
+            delta_best_distance = self.best_lap_Distance - self.cars[k].lap_distance
+            car_mean_speed = self.cars[k].lap_distance / car_current_lap_time
+            collision = self.cars[k].detect_collision(self.track.mask,
+                                                      self.track.offset_x,
+                                                      self.track.offset_y) if t > 9 else False
 
-            left_intersection_points = self.track.left_line.intersection(sensor)
-            right_intersection_points = self.track.right_line.intersection(sensor)
-            dl = self.distance_to_track(sensor, left_intersection_points, car_pos,
-                                        sensor_front_distance, sensor_lateral_distance, m)
-            dr = self.distance_to_track(sensor, right_intersection_points, car_pos,
-                                        sensor_front_distance, sensor_lateral_distance, m)
-            inputs.append(min(dl, dr))
-        inputs[0] = 1-(inputs[0] / sensor_lateral_distance)
-        inputs[4] = 1-(inputs[4] / sensor_lateral_distance)
-        inputs[1] = 1-(inputs[1] / sensor_lateral_distance)
-        inputs[3] = 1-(inputs[3] / sensor_lateral_distance)
-        inputs[2] = 1-(inputs[2] / sensor_front_distance)
-        return inputs
+            # self.cars[k].update_fitness((delta_distance * 0.01) + car_mean_speed * 0.001)
+            self.cars[k].update_fitness((delta_distance * 10))
+            # TODO :  change method of detection to remove bad genomes
+            if ((collision) or (delta_best_distance > BAD_GENOME_THRESHOLD) or (
+                self.cars[k].lap_distance < car_lap_distance_old
+                    ) or self.cars[k].velocity.x < 0.1):
+                self.cars[k].update_fitness((-delta_distance * 5))
+                # if self.cars_inrace == 1:
+                #     self.cars[k].genome.fitness *= 1.1
+                self.cars[k].is_out = True
+            else:
+                if self.best_lap_Distance < self.cars[k].lap_distance:
+                    self.update_best(k, self.cars[k].inputs)
+                    # self.drawsensors(sensors)
+                if self.best_local < self.cars[k].lap_distance:
+                    self.update_best_local(self.cars[k])
+                if car_mean_speed > self.best_local_mean_speed:
+                    self.best_local_mean_speed = car_mean_speed
+                if (self.cars[k].genome.fitness > self.getScore()):
+                    # print(self.ge[k].fitness,)
+                    self.updateScore(self.cars[k].genome.fitness)
+                    self.bestNN = self.NNs[k]
+                    self.bestCarDistance = self.cars[k].lap_distance
+                    self.bestCarPos = self.cars[k].camera
+            if self.cars[k].is_out:
+                self.cars_inrace = len(self.cars)
+        for car in self.cars:
+            if car.is_out:
+                self.cars.remove(car)
+                self.cars_inrace = len(self.cars)
 
-    def detectCollision(self, car_mask, car_pos):
-        # collition = False
-        rect = car_mask.get_rect()
-        mask_nb_bits_overlap = self.track.mask.overlap_mask(
-            car_mask, (int(self.track.offset_x + car_pos.x - rect.center[0]),
-                       int(self.track.offset_y + car_pos.y - rect.center[1])
-                       )).count()
+    def update_best(self, k, inputs):
+        self.best_lap_Distance = self.cars[k].lap_distance
+        self.best_lap_speed = self.cars[k].velocity.x
+        self.best_lap_steer = self.cars[k].steering
+        self.best_lap_acceleration = self.cars[k].acceleration
+        self.bestCarPos = self.cars[k].camera
+        self.bestInputs = inputs
+        self.bestCommands = self.cars[k].commands
 
-        return ((car_mask.count() - mask_nb_bits_overlap) > 50)
+    def update_best_local(self, car):
+        self.best_local = car.lap_distance
+        self.best_local_pos = car.position
+        self.best_local_cam = car.camera
+        self.best_local_inputs = car.inputs
 
     def updateBestCarPos(self, pos):
         self.bestCarPos = pos
@@ -261,9 +293,10 @@ class Game:
             dy = - dist * cos(omega)
             cx = center[0] - camera[0]
             cy = center[1] - camera[1]
-            line = list(
-                map(tuple, np.asarray(LineString([(cx, cy), (cx + dx, cy + dy)])))
-                )
+            # line = list(
+            #     map(tuple, np.asarray(LineString([(cx, cy), (cx + dx, cy + dy)])))
+            #     )
+            line = np.asarray([(cx, cy), (cx + dx, cy + dy)])
             pygame.draw.lines(self.screen,
                               GREEN,
                               False,
@@ -272,17 +305,7 @@ class Game:
             text = NODE_FONT.render(str(4-i), 1, BLACK)
             self.screen.blit(text, (line[-1]))
 
-    def create_brains(self, genomes, config):
-        nets = []
-        for id, g in genomes:
-            # nets.append(neat.nn.RecurrentNetwork.create(g, config))
-            g.fitness = 0
-            nets.append(neat.nn.FeedForwardNetwork.create(g, config))
-            # g.fitness = 0
-        return nets
-
     def soft_reset(self):
-        # self.generation += 1
         self.set_clock()
         # init lap numbers
         self.set_laps(30)
@@ -293,8 +316,8 @@ class Game:
         self.racetime = 0
 
         # AI
-        self.generation = 0
-        self.nets = []
+        self.generation += 1
+        # self.nets = []
         # self.ge = []
         self.NNs = []
         # self.updateScore(0)
@@ -305,13 +328,13 @@ class Game:
         # self.bestGenome = None
         # self.bestNN = None
 
-    def main_keystrokes_manager(self, pressed, config, stats):
+    def main_keystrokes_manager(self, pressed, stats):
         if pressed[pygame.K_q]:
             self.endRace
-            self.game_stats(config, stats)
+            # self.game_stats(config, stats)
             pygame.quit()
         if pressed[pygame.K_r]:
-            self.game_stats(config, stats)
+            self.game_stats(stats)
         if pressed[pygame.K_f]:
             self.screen.blit(self.track.mask.to_surface(), self.track.center)
             pygame.display.flip()
