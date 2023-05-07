@@ -147,7 +147,7 @@ class Track(pygame.sprite.Sprite):
             np.savetxt(fh,
                        data,
                        fmt="%.5f,%.5f,%.5f",
-                       header="left_side,center,rigth_side")
+                       header="left_side,center,right_side")
 
     def scale_track(self, scale_factor=1.0):
 

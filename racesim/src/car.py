@@ -59,9 +59,9 @@ class Car(pygame.sprite.Sprite):
         # ======= CAR DIMENSIONS
         self.width = width * PPM
         self.length = length * PPM
-        # regalmentary F1 2020 axes max distance §3.2.2 FIA
+        # reglamentary F1 2020 axes max distance §3.2.2 FIA
         #  McLaren	    5400	2000	950  600:2000 (3.3mm/px), 1405:5400(3.29263mm/px)
-        #                  mesures from jpg  350:1410 px
+        #                  measures from jpg  350:1410 px
         # 1405px:5400mm
         # 302px  195px
         # 1160.71mm    3489.82mm 749.47mm
@@ -93,7 +93,7 @@ class Car(pygame.sprite.Sprite):
         # TODOupdate date to 2023
         self.brake_deceleration = 559  # [px/s-2]
         # TODO self.free_deceleration integrate dynamically
-        # calculated w/drag coef in fonction of speed
+        # calculated w/drag coef in function of speed
         self.free_deceleration = 10  # [px/s-2]
         # ======= Live data =======
         self.commands = [0, 0]  # [0, 0, 0, 0]
@@ -357,7 +357,7 @@ class Car(pygame.sprite.Sprite):
         # Compute the final state using the discrete time model
         new_x   = self.position.x + self.velocity.x * cos(self.angle) * dt
         new_y   = self.position.y + self.velocity.x * sin(self.angle) * dt
-        new_yaw = normalise_angle(self.angle + self.angular_velocity * dt)
+        new_yaw = s(self.angle + self.angular_velocity * dt)
 
     def update_camera(self, dt):
         pass

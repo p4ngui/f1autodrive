@@ -61,7 +61,7 @@ def generation_iteration(genomes, config):
     # TODO : track selection
     game.soft_reset()
     # setup cars
-    # start car engins
+    # start car engines
     # Start Race
     game.startRace(genomes, config)
     game.bestCarPos = Vector2(-640, -360)

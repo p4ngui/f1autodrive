@@ -7,7 +7,7 @@ class Tires():
     def __init__(self, compound: str, age: int, tireset_pars: dict):
         super().__init__()
         # tire_model_exp:               [-] exponent used in the tire model to adjust
-        #                 
+        #
         # F1 2023 sizes in mm/"   Front: 305mm/720mm-18   Rear: 405mm/720mm-18
         # shape of friction "circle" -> [1.0, 2.0]
         self.tire_model_exp = 2.0
@@ -16,7 +16,7 @@ class Tires():
         # h_cog:                        [m] height of center of gravity
         # sf:                           [m] track width front
         # sr:                           [m] track width rear
-        # m:                            [kg] vehicle mass inlcuding driver excluding fuel
+        # m:                            [kg] vehicle mass including driver excluding fuel
         #                                    (F1 minimum 728kg)
         # f_roll:                       [-] rolling resistance coefficient
         # c_w_a:                        [m^2] c_w * A_car -> air resistance calculation
@@ -109,7 +109,7 @@ class Tires():
     def init_front(self):
         # tire data should be normalized to mu = 1.0 (coefficient of friction of the
         # track / tire test bench)
-        # circ_ref:                     [m] loaded reference circumreference
+        # circ_ref:                     [m] loaded reference circumference
         # fz_0:                         [N] nominal tire load
         # mux:                          [-] corresponds to the coefficient of friction at
         #                                   nominal tire load (fz == fz_0)
@@ -165,7 +165,7 @@ class Tires():
         acting tire loads f_z (considering dynamic load transfers) and the force
         potentials f_t of all four tires. Vehicle coordinate system: x - front,
         y - left, z - up. The tire model includes the reduction of the force potential
-        with rising tire loads as tire_par2 are negativ.
+        with rising tire loads as tire_par2 are negative.
         """
 
         # tire load calculation: static load, longitudinal load transfer,

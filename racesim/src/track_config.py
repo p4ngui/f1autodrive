@@ -48,6 +48,6 @@ class trackConfig:
                                    "curvlim": 0.12,
                                    "iqp_iters_min": 5,
                                    "iqp_curverror_allowed": 0.001}
-        # TODO: set car profile and useit on car init class
+        # TODO: set car profile and use it on car init class
         # self car_pars_ = {"max_vel" : 1028}
-        # TODO: set driver profile and useit on driver init class
+        # TODO: set driver profile and use it on driver init class

@@ -33,10 +33,6 @@ class Engine():
         self.topology = "RWD"
         self.pow_max = self.HP_combustion_max
         self.pow_diff = 41e3
-        self.n_begin = 10500.0
-        self.n_max = self.RPM_max
-        self.n_end = self.RPM_end
-        self.be_max = 100.0
         self.pow_e_motor = self.HP_electric_max
         self.eta_e_motor = 0.9
         self.eta_e_motor_re = 0.15
@@ -44,13 +40,12 @@ class Engine():
         self.vel_min_e_motor = 27.777
         self.torque_e_motor_max = 200.0
         self.pow_begend = self.pow_max - self.pow_diff
-        self.max_temp_water = 150  # [°Celcius]
-        self.max_temp_internal = 1000  # [°Celcius]
-        # unit conversions
-        self.n_begin /= 60.0   # [1/min] -> [1/s]
-        self.n_max /= 60.0     # [1/min] -> [1/s]
-        self.n_end /= 60.0     # [1/min] -> [1/s]
-        self.be_max /= 3600.0  # [kg/h] -> [kg/s]
+        self.max_temp_water = 150  # [°Celsius]
+        self.max_temp_internal = 1000  # [°Celsius]
+        self.n_begin = 10500.0 / 60.0
+        self.n_max = self.RPM_max / 60.0
+        self.n_end = self.RPM_end / 60.0
+        self.be_max = 100.0 / 3600.0
         # State vars
         self.rpm = 0
         self.hp = 0
@@ -86,16 +81,14 @@ class Engine():
         p_eng = (self.z_pow_engine[0] * np.power(n_use, 3)
                  + self.z_pow_engine[1] * np.power(n_use, 2)
                  + self.z_pow_engine[2] * n_use + self.z_pow_engine[3])
-        p_eng[p_eng < 0.0] = 0.0  # assure that no negativ powers appear
+        p_eng[p_eng < 0.0] = 0.0  # assure that no negative powers appear
 
         return p_eng
 
     def torque_e_motor(self, n: float):
         """Rev input in 1/s. Output is the maximum torque in Nm."""
         torque_tmp = self.pow_e_motor / (2 * math.pi * n)
-        torque_tmp = min(torque_tmp, self.torque_e_motor_max)
-
-        return torque_tmp
+        return min(torque_tmp, self.torque_e_motor_max)
 
     def torque(self, n: float):
         # Rev input in 1/s. Output is the maximum torque in Nm.
@@ -201,7 +194,7 @@ class Engine():
     def calc_m_requ(self, f_x: float, vel: float):
         """Function to calculate required powertrain torque to reach a specific
         longitudinal acceleration force f_x at the current velocity. Input f_x in N,
-        vel in m/s. Output is the rquired powertrain torque in Nm.
+        vel in m/s. Output is the required powertrain torque in Nm.
         """
 
         # get gear at velocity
