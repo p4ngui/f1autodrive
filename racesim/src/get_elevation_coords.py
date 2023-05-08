@@ -8,8 +8,8 @@ import urllib.request
 import urllib.parse
 from urllib.error import URLError, HTTPError
 import json
-import matplotlib.pyplot as plt
 import os
+import numpy as np
 
 
 def make_remote_request(url: str, json_data: dict):
@@ -28,19 +28,23 @@ def make_remote_request(url: str, json_data: dict):
     count = 2
     try:
         response = urllib.request.urlopen(req)
-    except (URLError) as error:
-        print('\n')
-        print('*' * 20, 'Error Occured', '*' * 20)
-        print(f'Number of tries: {count}')
-        print(f'URL: {url}')
-        print(error.reason)
-        print('\n')
-        count += 1
+    except URLError as error:
+        errors_retry_output(count, url, error)
     except HTTPError as error:
         print('The server couldn\'t fulfill the request.')
         print('Error code: ', error.code)
     else:
         return response.read()
+
+
+def errors_retry_output(count, url, error):
+    print('\n')
+    print('*' * 20, 'Error Occurred', '*' * 20)
+    print(f'Number of tries: {count}')
+    print(f'URL: {url}')
+    print(error.reason)
+    print('\n')
+    count += 1
 
 
 def make_json(data):
@@ -51,17 +55,16 @@ def make_json(data):
     return json.dumps({"locations": d_ar}, skipkeys=int).encode('utf8')
 
 
-def response_processing(reponse):
-    json_str = json.loads(reponse)
-    return json_str
+def response_processing(response):
+    return json.loads(response)
 
 
 # MAIN
 
 url = "https://api.open-elevation.com/api/v1/lookup"
 P1 = [[43.9933775, 11.3690729], [43.9932783, 11.3667434]]
-reponse = make_remote_request(url, make_json(P1))
-reponse = response_processing(reponse)
+response = make_remote_request(url, make_json(P1))
+response = response_processing(response)
 
 fileDir = os.path.dirname(os.path.realpath('__file__'))
 print(fileDir)

@@ -29,6 +29,8 @@ class Tires():
         self.mu = 1.0
         self.lf = 1.968
         self.lr = 1.632
+        # TODO wrong car length
+        # ERROR
         self.l_tot = self.lf + self.lr
         # car value
         # TODO move to car class & pass it as param

@@ -128,7 +128,7 @@ class Game:
         self.cars[car_id].lap_number += 1
         self.lap_distance = 0.0
         # TODO Interpolate exact time car crossed start
-        # time = (-speed +- sqrt(speed² + (4a/2*dsit)))/(2a/2*dist)
+        # time = (-speed +- sqrt(speed² + (4a/2*dist)))/(2a/2*dist)
         # TODO Start new lap less interpolated time
         return self.cars[car_id].laptimes[-1]
 
@@ -331,8 +331,10 @@ class Game:
     def main_keystrokes_manager(self, pressed, stats):
         if pressed[pygame.K_q]:
             self.endRace
-            # self.game_stats(config, stats)
+            self.game_stats(stats)
             pygame.quit()
+
+            quit(0)
         if pressed[pygame.K_r]:
             self.game_stats(stats)
         if pressed[pygame.K_f]:
