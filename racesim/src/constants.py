@@ -27,12 +27,12 @@ ACC_STRENGTH = 0.15
 BRAKE_STRENGTH = 1.5
 TURN_VEL = 3.5
 SENSOR_DISTANCE = 300  # distance in px 1m = 10px
-ACTIVATION_THRESHOLD = 0.5
+ACTIVATION_THRESHOLD = 0.0
 MMTOMETERS = 1/1000
 STEERING_THRESHOLD = 0.01
-STEERING_SPEED = 17.5
+STEERING_SPEED = 20  # [°/s]
 PPM = 10  # Pixels per meter (conversion scale)
-
+MPP = 1/PPM  # Meters per pixel
 # =================== TRACK Specs ==================================
 
 ROAD_DBG = False
