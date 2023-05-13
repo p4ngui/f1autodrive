@@ -1,4 +1,6 @@
-from math import atan2, sin, cos, tan
+from math import atan2, sin, cos, tan, radians
+import numpy as np
+from matplotlib import pyplot as plt
 
 
 def normalize_angle(angle: float):
@@ -7,6 +9,14 @@ def normalize_angle(angle: float):
     :return angle:      (float) angle [rad]
     """
     return lambda angle: atan2(sin(angle), cos(angle))
+
+
+def normalize_angle2(angle: float):
+    """
+    :param angle:       (float) angle [rad]
+    :return angle:      (float) angle [rad]
+    """
+    return atan2(sin(angle), cos(angle))
 
 
 class KinematicBicycleModel:
@@ -61,7 +71,8 @@ class KinematicBicycleModel:
         new_velocity = velocity + self.delta_time * acceleration
 
         # Limit steering angle to physical vehicle limits
-        # steering_angle = -self.max_steer if steering_angle < -self.max_steer else self.max_steer if steering_angle > self.max_steer else steering_angle
+        # steering_angle = -self.max_steer if steering_angle < -self.max_steer else self.max_steer
+        # if steering_angle > self.max_steer else steering_angle
         steering_angle = (
             -self.max_steer
             if steering_angle < -self.max_steer
@@ -72,13 +83,12 @@ class KinematicBicycleModel:
         angular_velocity = new_velocity*tan(steering_angle) / self.wheelbase
 
         # Compute the final state using the discrete time model
-        new_x   = x + velocity*cos(yaw)*self.delta_time
-        new_y   = y + velocity*sin(yaw)*self.delta_time
+        new_x = x + velocity*cos(yaw)*self.delta_time
+        new_y = y + velocity*sin(yaw)*self.delta_time
         new_yaw = normalize_angle(yaw + angular_velocity*self.delta_time)
-
+        new_yaw2 = normalize_angle2(yaw + angular_velocity*self.delta_time)
         return new_x, new_y, new_yaw, new_velocity, steering_angle,
 
-import numpy as np
 
 class CarDescription:
 
@@ -86,7 +96,8 @@ class CarDescription:
                  overall_width: float,
                  rear_overhang: float,
                  tyre_diameter: float,
-                 tyre_width: float,
+                 rear_tyre_width: float,
+                 front_tyre_width: float,
                  axle_track: float,
                  wheelbase: float):
 
@@ -95,78 +106,103 @@ class CarDescription:
         All calculations are done w.r.t the vehicle's rear axle to reduce computation steps.
 
         At initialization
-        :param overall_length:          (float) vehicle's overall length [m]
-        :param overall_width:           (float) vehicle's overall width [m]
-        :param rear_overhang:           (float) distance between the rear bumper and the rear axle [m]
-        :param tyre_diameter:           (float) diameter of the vehicle's tyre [m]
-        :param tyre_width:              (float) width of the vehicle's tyre [m]
-        :param axle_track:              (float) length of the vehicle's axle track [m]
-        :param wheelbase:               (float) length of the vehicle's wheelbase [m]
+        :param overall_length:        (float) vehicle's overall length [m]
+        :param overall_width:         (float) vehicle's overall width [m]
+        :param rear_overhang:         (float) distance between the rear bumper and the rear axle[m]
+        :param tyre_diameter:         (float) diameter of the vehicle's tyre [m]
+        :param tyre_width:            (float) width of the vehicle's tyre [m]
+        :param axle_track:            (float) length of the vehicle's axle track [m]
+        :param wheelbase:             (float) length of the vehicle's wheelbase [m]
 
         At every time step
-        :param x:                       (float) x-coordinate of the vehicle's rear axle
-        :param y:                       (float) y-coordinate of the vehicle's rear axle
-        :param yaw:                     (float) vehicle's heading [rad]
-        :param steer:                   (float) vehicle's steering angle [rad]
+        :param x:                     (float) x-coordinate of the vehicle's rear axle
+        :param y:                     (float) y-coordinate of the vehicle's rear axle
+        :param yaw:                   (float) vehicle's heading [rad]
+        :param steer:                 (float) vehicle's steering angle [rad]
 
-        :return outlines:               (ndarray) vehicle's outlines [x, y]
-        :return front_right_wheel:      (ndarray) vehicle's front-right axle [x, y]
-        :return rear_right_wheel:       (ndarray) vehicle's rear-right axle [x, y]
-        :return front_left_wheel:       (ndarray) vehicle's front-left axle [x, y]
-        :return rear_left_wheel:        (ndarray) vehicle's rear-right axle [x, y]
+        :return outlines:             (ndarray) vehicle's outlines [x, y]
+        :return front_right_wheel:    (ndarray) vehicle's front-right axle [x, y]
+        :return rear_right_wheel:     (ndarray) vehicle's rear-right axle [x, y]
+        :return front_left_wheel:     (ndarray) vehicle's front-left axle [x, y]
+        :return rear_left_wheel:      (ndarray) vehicle's rear-right axle [x, y]
         """
 
-        rear_axle_to_front_bumper  = overall_length - rear_overhang
-        centerline_to_wheel_centre = 0.5 * axle_track
-        centerline_to_side         = 0.5 * overall_width
+        rear_axle_to_front_bumper = overall_length - rear_overhang
+        # centerline_to_wheel_centre = 0.5 * axle_track
+        centerline_to_side = 0.5 * overall_width
+        half_tyre_diameter = 0.5 * tyre_diameter
 
         vehicle_vertices = np.array([
             (-rear_overhang,              centerline_to_side),
-            ( rear_axle_to_front_bumper,  centerline_to_side),
-            ( rear_axle_to_front_bumper, -centerline_to_side),
+            (rear_axle_to_front_bumper,  centerline_to_side),
+            (rear_axle_to_front_bumper, -centerline_to_side),
             (-rear_overhang,             -centerline_to_side)
         ])
 
-        half_tyre_width            = 0.5 * tyre_width
-        centerline_to_inwards_rim  = centerline_to_wheel_centre - half_tyre_width
-        centerline_to_outwards_rim = centerline_to_wheel_centre + half_tyre_width
+        half_rear_tyre_width = 0.5 * rear_tyre_width
+        centerline_to_wheel_centre = 0.5 * axle_track - half_rear_tyre_width
+        centerline_to_inwards_rim = centerline_to_wheel_centre - half_rear_tyre_width
+        centerline_to_outwards_rim = centerline_to_wheel_centre + half_rear_tyre_width
 
         # Rear right wheel vertices
-        wheel_vertices = np.array([
-            (-tyre_diameter, -centerline_to_inwards_rim),
-            ( tyre_diameter, -centerline_to_inwards_rim),
-            ( tyre_diameter, -centerline_to_outwards_rim),
-            (-tyre_diameter, -centerline_to_outwards_rim)
+        rear_wheel_vertices = np.array([
+            (-half_tyre_diameter, -centerline_to_inwards_rim),
+            (half_tyre_diameter, -centerline_to_inwards_rim),
+            (half_tyre_diameter, -centerline_to_outwards_rim),
+            (-half_tyre_diameter, -centerline_to_outwards_rim)
         ])
 
-        self.outlines         = np.concatenate([vehicle_vertices, [vehicle_vertices[0]]])
-        self.rear_right_wheel = np.concatenate([wheel_vertices,   [wheel_vertices[0]]])
+        half_front_tyre_width = 0.5 * front_tyre_width
+        centerline_to_wheel_centre = 0.5 * axle_track - half_front_tyre_width
+        centerline_to_inwards_rim = centerline_to_wheel_centre - half_front_tyre_width
+        centerline_to_outwards_rim = centerline_to_wheel_centre + half_front_tyre_width
+
+        # Front right wheel vertices
+        front_wheel_vertices = np.array([
+            (-half_tyre_diameter, -centerline_to_inwards_rim),
+            (half_tyre_diameter, -centerline_to_inwards_rim),
+            (half_tyre_diameter, -centerline_to_outwards_rim),
+            (-half_tyre_diameter, -centerline_to_outwards_rim)
+        ])
+
+        self.outlines = np.concatenate([vehicle_vertices, [vehicle_vertices[0]]])
+        self.rear_right_wheel = np.concatenate([rear_wheel_vertices, [rear_wheel_vertices[0]]])
 
         # Reflect the wheel vertices about the x-axis
-        self.rear_left_wheel  = self.rear_right_wheel.copy()
+        self.rear_left_wheel = self.rear_right_wheel.copy()
         self.rear_left_wheel[:, 1] *= -1
 
         # Translate the wheel vertices to the front axle
-        front_left_wheel  = self.rear_left_wheel.copy()
-        front_right_wheel = self.rear_right_wheel.copy()
-        front_left_wheel[:, 0]  += wheelbase
+        self.front_right_wheel = np.concatenate([front_wheel_vertices, [front_wheel_vertices[0]]])
+        # Reflect the wheel vertices about the x-axis
+        self.front_left_wheel = self.front_right_wheel.copy()
+        self.front_left_wheel[:, 1] *= -1
+        front_left_wheel = self.front_left_wheel.copy()
+        front_right_wheel = self.front_right_wheel.copy()
+        front_left_wheel[:, 0] += wheelbase
         front_right_wheel[:, 0] += wheelbase
 
-        get_face_centre = lambda vertices: np.array([
-            0.5*(vertices[0][0] + vertices[2][0]),
-            0.5*(vertices[0][1] + vertices[2][1])
-        ])
+        # get_face_centre = lambda vertices: np.array([
+        #     0.5*(vertices[0][0] + vertices[2][0]),
+        #     0.5*(vertices[0][1] + vertices[2][1])
+        # ])
 
         # Translate front wheels to origin
-        self.fr_wheel_centre = get_face_centre(front_right_wheel)
-        self.fl_wheel_centre = get_face_centre(front_left_wheel)
+        self.fr_wheel_centre = self.get_face_center(front_right_wheel)
+        self.fl_wheel_centre = self.get_face_center(front_left_wheel)
         self.fr_wheel_origin = front_right_wheel - self.fr_wheel_centre
         self.fl_wheel_origin = front_left_wheel - self.fl_wheel_centre
 
         # Class variables
-        self.x: float   = None
-        self.y: float   = None
+        self.x: float = None
+        self.y: float = None
         self.yaw_vector = np.empty((2, 2))
+
+    def get_face_center(self, vertices):
+        return np.array([
+            0.5*(vertices[0][0] + vertices[2][0]),
+            0.5*(vertices[0][1] + vertices[2][1])
+        ])
 
     def get_rotation_matrix(_, angle: float) -> np.ndarray:
         """_summary_
@@ -182,7 +218,7 @@ class CarDescription:
         sin_angle = sin(angle)
 
         return np.array([
-            ( cos_angle, sin_angle),
+            (cos_angle, sin_angle),
             (-sin_angle, cos_angle)
         ])
 
@@ -203,7 +239,7 @@ class CarDescription:
 
         return point
 
-    def plot_car(self, x: float, y: float, yaw: float, steer: float) :
+    def plot_car(self, x: float, y: float, yaw: float, steer: float):
         """_summary_
         Args:
             x (float): _description_
@@ -219,56 +255,63 @@ class CarDescription:
 
         # Rotation matrices
         self.yaw_vector = self.get_rotation_matrix(yaw)
-        steer_vector    = self.get_rotation_matrix(steer)
+        steer_vector = self.get_rotation_matrix(steer)
 
         # Rotate the wheels about its position
-        front_right_wheel  = self.fr_wheel_origin.copy()
-        front_left_wheel   = self.fl_wheel_origin.copy()
-        front_right_wheel  = front_right_wheel@steer_vector
-        front_left_wheel   = front_left_wheel@steer_vector
+        front_right_wheel = self.fr_wheel_origin.copy()
+        front_left_wheel = self.fl_wheel_origin.copy()
+        front_right_wheel = front_right_wheel@steer_vector
+        front_left_wheel = front_left_wheel@steer_vector
         front_right_wheel += self.fr_wheel_centre
-        front_left_wheel  += self.fl_wheel_centre
+        front_left_wheel += self.fl_wheel_centre
 
-        outlines          = self.transform(self.outlines)
-        rear_right_wheel  = self.transform(self.rear_right_wheel)
-        rear_left_wheel   = self.transform(self.rear_left_wheel)
+        outlines = self.transform(self.outlines)
+        rear_right_wheel = self.transform(self.rear_right_wheel)
+        rear_left_wheel = self.transform(self.rear_left_wheel)
         front_right_wheel = self.transform(front_right_wheel)
-        front_left_wheel  = self.transform(front_left_wheel)
+        front_left_wheel = self.transform(front_left_wheel)
 
         return outlines, front_right_wheel, rear_right_wheel, front_left_wheel, rear_left_wheel
 
+
 def main():
-
-    from matplotlib import pyplot as plt
-
-    # Based on Tesla's model S 100D (https://www.car.info/en-se/tesla/model-s/model-s-100-kwh-awd-16457112/specs)
+    # Based on Tesla's model S 100D 
+    # (https://www.car.info/en-se/tesla/model-s/model-s-100-kwh-awd-16457112/specs)
     overall_length = 5.4
-    overall_width  = 1.6
-    tyre_diameter  = 0.720
-    tyre_width     = 0.405
-    axle_track     = 2.0
-    wheelbase      = 3.490
+    overall_width = 1.6
+    tyre_diameter = 0.720
+    rear_tyre_width = 0.405
+    front_tyre_width = 0.305
+    axle_track = 2.0
+    wheelbase = 3.490
     # TODO wrong assumption : that the distance from axel to rear or front are equals
-    rear_overhang  = 0.749
-    colour         = 'black'
+    rear_overhang = 0.749
+    color = 'black'
 
     # Initial state
-    x     =  30.0
-    y     = 0.0
-    yaw   = 2*np.pi 
-    steer = np.deg2rad(25)
-
-    desc = CarDescription(overall_length, overall_width, rear_overhang, tyre_diameter, tyre_width, axle_track, wheelbase)
+    x = 0.0
+    y = 0.0
+    yaw = 2*np.pi
+    steer = np.deg2rad(0)
+    kin = KinematicBicycleModel(wheelbase, radians(30.0), 0.1)
+    b = kin.update(1, 1, radians(15), 40, 12, 15)
+    desc = CarDescription(overall_length, overall_width, rear_overhang,
+                          tyre_diameter, rear_tyre_width, front_tyre_width, axle_track, wheelbase)
     desc_plots = desc.plot_car(x, y, yaw, steer)
 
     ax = plt.axes()
     ax.set_aspect('equal')
 
-    for desc_plot in desc_plots:
-        ax.plot(*desc_plot, color=colour)
+    ax.plot(*desc_plots[0], color=color)
+    ax.plot(*desc_plots[1], color="blue")
+    ax.plot(*desc_plots[2], color="red")
+    ax.plot(*desc_plots[3], color="blue")
+    ax.plot(*desc_plots[4], color="red")
 
     plt.show()
 
-if __name__ == '__main__':
-    main()
 
+if __name__ == '__main__':
+    print(f"n1: {normalize_angle(np.pi)}")
+    print(f"n2: {normalize_angle2(np.pi)}")
+    main()
