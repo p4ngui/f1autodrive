@@ -26,7 +26,7 @@ class Game:
         self.bestGenome = None
         self.bestCarPos = Vector2(-self.width//2, -self.height//2)
         self.bestCarDistance = 0.0
-        self.bestCommands = [0, 0, 0, 0]
+        self.bestActions = [0, 0, 0, 0]
         self.bestInputs = [0, 0, 0, 0, 0, 0]
         self.bestGenome = None
         self.bestNN = None
@@ -175,7 +175,7 @@ class Game:
         text = NODE_FONT.render(f"Inputs : {mx}", 1, BLACK)
         self.screen.blit(text, (self.width-text.get_width() - 10,
                                 delta_big * 3 + delta_little * 4))
-        self.bestNN.draw(self.screen, self.bestInputs, self.bestCommands)
+        self.bestNN.draw(self.screen, self.bestInputs, self.bestActions)
         r = 1
         dist = []
         for car in self.cars:
@@ -254,7 +254,7 @@ class Game:
         self.best_lap_acceleration = self.cars[k].acceleration
         self.bestCarPos = self.cars[k].camera
         self.bestInputs = inputs
-        self.bestCommands = self.cars[k].commands
+        self.bestActions = self.cars[k].actions
 
     def update_best_local(self, car):
         self.best_local = car.lap_distance
@@ -323,7 +323,7 @@ class Game:
         # self.updateScore(0)
         self.bestCarPos = Vector2(-self.width // 2, -self.height // 2)
         # self.bestCarDistance = 0.0
-        # self.bestCommands = None
+        # self.bestActions = None
         # self.bestInputs = None
         # self.bestGenome = None
         # self.bestNN = None
