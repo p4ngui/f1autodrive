@@ -6,8 +6,7 @@ from racesim.src.constants import BLUE, DARK_GRAY, GRAY, RED
 from shapely.geometry.polygon import LinearRing
 from racesim.src.util.calc_splines import calc_splines
 # import trajectory_planning_helpers as tph
-from racesim.src.util.spline_approximation import \
-    spline_approximation
+from racesim.src.util.spline_approximation import spline_approximation
 
 
 class Track(pygame.sprite.Sprite):
@@ -39,6 +38,7 @@ class Track(pygame.sprite.Sprite):
             os.path.join(self.images_path, f'{self.filename_prefix}.png')
         ):
             self.img_from_file = False
+        # TODO fix : handle multiplier as parameter, why x10
         self.track_width_cl = self.params.track_pars["track_width"] * 10
 
     def build_track(self):
@@ -90,7 +90,7 @@ class Track(pygame.sprite.Sprite):
         self.bound_right_imp_cl = None
 
     def load_track_from_png(self):
-        self.image = pygame.image.load(self.images_path + self.filename_prefix + 'b.png')
+        # self.image = pygame.image.load(self.images_path + self.filename_prefix + 'b.png')
         # self.image = self.image.convet_alpha())
         # self.mask = pygame.mask.from_surface(self.image)
         self.image = pygame.image.load(
@@ -125,7 +125,7 @@ class Track(pygame.sprite.Sprite):
             os.path.join(self.images_path, f'{self.filename_prefix}.png'),
         )
         # self.track_interp_cl = None
-        # TODO save image to à file
+        # TODO save image to a file
         # TODO create mask
 
     def load_track_from_csv(self):
@@ -204,6 +204,11 @@ class Track(pygame.sprite.Sprite):
         # check if imported track should be flipped, i.e. reverse direction
         if self.params.imp_opts["flip_imp_track"]:
             self.track_interp = np.flipud(self.track_interp)
+        # save to csv
+        with open(os.path.join(
+                    self.track_path, f"{self.filename_prefix}_generated_track.csv"
+                ), "wb") as fh:
+            np.savetxt(fh, self.track_interp, fmt='%.6f,%.6f,%.3f,%.3f', header="x_m,y_m,w_tr_right_m,w_tr_left_m")
 
         # check if imported track should be reordered for a new starting point
         if self.params.imp_opts["set_new_start"]:

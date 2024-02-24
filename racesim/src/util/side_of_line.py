@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Union
 
-print("side_of_line")
+# print("side_of_line")
 
 
 def side_of_line(a: Union[tuple, np.ndarray],

@@ -34,7 +34,7 @@ class Node:
         if self.type == INPUT:
             ratio = game_best_inputs[self.index]
         elif self.type == OUTPUT:
-            ratio = 1 if decodeCommand(game_best_commands, self.index) else 0
+            ratio = 1 if game_best_inputs[self.index] >= 0.5 else 0
         else:
             ratio = 0
 

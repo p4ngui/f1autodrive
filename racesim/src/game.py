@@ -9,7 +9,7 @@ import racesim.src.NNdraw
 from racesim.src.track import Track
 from racesim.src.constants import (BLACK, DARK_GRAY, GREEN, NODE_FONT, STAT_FONT)
 from racesim.src.constants import BAD_GENOME_THRESHOLD
-import racesim.util.visualize as visualize
+import racesim.src.util.visualize as visualize
 import neat
 
 
@@ -91,7 +91,7 @@ class Game:
             self.cars.append(racesim.src.car.Car(-0, -0))
             self.cars[p].set_track_offset(self.track.offset_x,
                                           self.track.offset_y)
-            # global nets
+            # global neats
             g.fitness = 0
             self.cars[p].set_ia(neat.nn.FeedForwardNetwork.create(g, config))
             self.cars[p].set_genome(g)
@@ -99,8 +99,8 @@ class Game:
             self.NNs.append(racesim.src.NNdraw.NN(config, g, (90, 210)))
             # TODO: add car to group.
             # TODO: add angle as init variable
-            # I center the cars @ start line pointing track direction
-            self.cars[p].angle = -degrees(atan2(
+            # center the cars @ start line pointing track direction
+            self.cars[p].yaw = -degrees(atan2(
                 self.track.track_interp_cl[1][1] - self.track.track_interp_cl[0][1],
                 self.track.track_interp_cl[1][0] - self.track.track_interp_cl[0][0])
                                  )
@@ -175,6 +175,10 @@ class Game:
         text = NODE_FONT.render(f"Inputs : {mx}", 1, BLACK)
         self.screen.blit(text, (self.width-text.get_width() - 10,
                                 delta_big * 3 + delta_little * 4))
+        mx = ', '.join((str(round(w, 3)) for w in self.bestActions))
+        text = NODE_FONT.render(f"Outputs : {mx}", 1, BLACK)
+        self.screen.blit(text, (self.width-text.get_width() - 10,
+                                delta_big * 4 + delta_little * 5))
         self.bestNN.draw(self.screen, self.bestInputs, self.bestActions)
         r = 1
         dist = []
@@ -190,7 +194,7 @@ class Game:
                 BLACK,
             )
             self.screen.blit(text, (self.width-text.get_width() - 10,
-                                    delta_big * (4) + delta_little * (r+4)))
+                                    delta_big * (5) + delta_little * (r+5)))
 
     # TODO rename method to update sensor
     # TODO create a sensor class
@@ -328,7 +332,7 @@ class Game:
         # self.bestGenome = None
         # self.bestNN = None
 
-    def main_keystrokes_manager(self, pressed, stats):
+    def main_keystrokes_manager(self, pressed, stats, config):
         if pressed[pygame.K_q]:
             self.endRace
             self.game_stats(stats)
@@ -336,7 +340,11 @@ class Game:
 
             quit(0)
         if pressed[pygame.K_r]:
-            self.game_stats(stats)
+            self.game_stats(stats, 2)
+        if pressed[pygame.K_t]:
+            self.game_stats(stats, 1, config)
+        if pressed[pygame.K_y]:
+            self.game_stats(stats, 3)
         if pressed[pygame.K_f]:
             self.screen.blit(self.track.mask.to_surface(), self.track.center)
             pygame.display.flip()
@@ -353,13 +361,16 @@ class Game:
         if pressed[pygame.K_p]:
             Mouse_x, Mouse_y = pygame
 
-    def game_stats(self, stats):
+    def game_stats(self, stats, choice, config=None):
         stats.save()
         unique_genomes = stats.best_unique_genomes(5)
         assert 1 <= len(unique_genomes) <= 5, "Unique genomes: {!r}".format(unique_genomes)
         genomes = stats.best_genomes(5)
         assert 1 <= len(genomes) <= 5, "Genomes: {!r}".format(genomes)
         stats.best_genome()
-        # visualize.draw_net(config, genomes[0], True)
-        visualize.plot_stats(stats, ylog=False, view=True)
-        visualize.plot_species(stats, view=True)
+        if choice == 1 and config:
+            visualize.draw_net(config, genomes[0], True)
+        elif choice == 2:
+            visualize.plot_stats(stats, ylog=False, view=True)
+        elif choice == 3:
+            visualize.plot_species(stats, view=True)

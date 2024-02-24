@@ -48,12 +48,11 @@ class Tires():
         self.rho_air = 1.18
         self.drs_factor = 0.17
 
-        self.f_z_calc_stat = {}
         self.f_z_fl = None
         self.f_z_fr = None
         self.f_z_rl = None
         self.f_z_rr = None
-        self.f_z_calc_stat["stat_load"] = np.zeros(4)
+        self.f_z_calc_stat = {"stat_load": np.zeros(4)}
         self.f_z_calc_stat["aero"] = np.zeros(4)
         self.f_z_calc_stat["trans_long"] = np.zeros(4)
         self.f_z_calc_stat["trans_lat"] = np.zeros(4)
@@ -383,6 +382,7 @@ class Tires():
         return t_tire_degr
 
     def calculate_free_rolling_radius(self, diameter_no_load, width, pressure):
+        # TODO redefine input parameters no so clear so far if input diameter is in inches or meters or mm
         # Convert width from millimeters to inches
         width_inches = width / 25.4
         # Calculate loaded radius as 97% of the diameter with no load

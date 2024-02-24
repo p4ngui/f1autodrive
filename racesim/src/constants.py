@@ -30,7 +30,7 @@ SENSOR_DISTANCE = 300  # distance in px 1m = 10px
 ACTIVATION_THRESHOLD = 0.0
 MMTOMETERS = 1/1000
 STEERING_THRESHOLD = 0.01
-STEERING_SPEED = 20  # [°/s]
+STEERING_SPEED = 7.5  # [°/s]
 PPM = 10  # Pixels per meter (conversion scale)
 MPP = 1/PPM  # Meters per pixel
 # =================== TRACK Specs ==================================
@@ -78,7 +78,8 @@ STAT_FONT = py.font.SysFont("comicsans", 30)
 
 # =================== Constants for internal use ==============
 GEN = 0
-
+LEFT = 0
+RIGHT = 1
 # enumerations
 ACC = 0
 BRAKE = 1

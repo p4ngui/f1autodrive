@@ -28,8 +28,11 @@ class NN:
         #                 "Brake",
         #                 "Turn Left",
         #                 "Turn Right"]
-        output_names = ["Throttle",
-                        "Steer"]
+        # output_names = ["Throttle",
+        #                 "Steer"]
+        output_names = ["Steer Left",
+                        "Steer Right",
+                        "Throttle"]
         middle_nodes = list(genome.nodes.keys())
         nodeIdList = []
 

@@ -1,7 +1,10 @@
 class trackConfig:
     def __init__(self):
-        self.track_pars = {"location": "lemanscik",
-                           "track_length": 1385.0,
+        # self.track_pars = {"location": "lemanscik",
+        #                    "track_length": 1385.0,
+        #                    "track_width": 14.0}
+        self.track_pars = {"location": "Monza",
+                           "track_length": 5793.0,
                            "track_width": 14.0}
     # set import options ---------------------------------------------------
     # mode:          "track" or "centerline" -> track is supplied as .csv
@@ -13,7 +16,7 @@ class trackConfig:
     # plot_track:    plot imported as well as smoothed track
 
         self.imp_opts = {"mode": "centerline",
-                         "flip_imp_track": True,
+                         "flip_imp_track": False,
                          "set_new_start": False,
                          "new_start": [0.0, 0.0],
                          "plot_track": False}
@@ -44,7 +47,7 @@ class trackConfig:
     # iqp_iters_min:         [-] minimum number of iterations for the IQP
     # iqp_curverror_allowed: [rad/m] maximum allowed curvature error for the IQP
 
-        self.optim_opts_mincurv = {"width_opt": 1.5,
+        self.optim_opts_mincurv = {"width_opt": 2.0,
                                    "curvlim": 0.12,
                                    "iqp_iters_min": 5,
                                    "iqp_curverror_allowed": 0.001}

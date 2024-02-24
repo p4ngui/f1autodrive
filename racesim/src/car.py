@@ -3,13 +3,16 @@ from pygame.math import Vector2
 from math import radians, degrees, sin, cos, atan2, tan
 from shapely.geometry import LineString
 from shapely.geometry.polygon import Point
-from racesim.src.constants import ACC, BRAKE, TURN_LEFT, TURN_RIGHT
+from racesim.src.constants import ACC, BRAKE, TURN_LEFT, TURN_RIGHT, LEFT, RIGHT
 from racesim.src.constants import PPM, MMTOMETERS
 from racesim.src.constants import STEERING_SPEED, STEERING_THRESHOLD
 import racesim.src.gearbox
 import racesim.src.tires
 import os
 import numpy as np
+
+# TODO add PID controller 
+# https://skill-lync.com/student-projects/designing-a-controller-for-controlling-lateral-and-longitudinal-movement-of-self-driving-car-using-python-and-test-it-by-using-carla-simulator
 
 
 def normalize_angle(angle: float):
@@ -37,8 +40,7 @@ class KinematicBicycleModel:
     update(x, y, yaw, velocity, acceleration, steering_angle)
         updates the vehicle's state using the kinematic bicycle model
     """
-    def __init__(self, wheelbase: float, max_steer: float, delta_time: float = 0.05):
-
+    def __init__(self, wheelbase: float, max_steer: float):
 
         self.wheelbase = wheelbase
         self.max_steer = max_steer
@@ -74,10 +76,11 @@ class KinematicBicycleModel:
         # Limit steering angle to physical vehicle limits
         # steering_angle = -self.max_steer if steering_angle < -self.max_steer else self.max_steer
         # if steering_angle > self.max_steer else steering_angle
+        max_steer_rads = radians(self.max_steer)
         steering_angle = (
-            -self.max_steer
-            if steering_angle < -self.max_steer
-            else min(steering_angle, self.max_steer)
+            -max_steer_rads
+            if steering_angle < -max_steer_rads
+            else min(steering_angle, max_steer_rads)
         )
 
         # Compute the angular velocity
@@ -87,7 +90,7 @@ class KinematicBicycleModel:
         new_x = x + velocity*cos(yaw)*delta_time
         new_y = y + velocity*sin(yaw)*delta_time
         new_yaw = normalize_angle(yaw + angular_velocity*delta_time)
-        return new_x, new_y, new_yaw, new_velocity, steering_angle,
+        return new_x, new_y, new_yaw, new_velocity, steering_angle, angular_velocity
 
 
 """
@@ -110,24 +113,26 @@ class KinematicBicycleModel:
 class Car(pygame.sprite.Sprite):
 
     def __init__(self, x, y,
-                 yaw=0.0,
+                 yaw=80.0,
                  velocity=Vector2(0.0, 0.0),
                  acceleration=0,
                  total_length=5.4,
                  total_width=2.0,
                  max_steer=30,
                  team="Mercedes",
-                 driver="HAM"):
-
-        pygame.sprite.Sprite.__init__(self)
-        self.images_path = os.path.join(os.path.dirname(__file__), "img")
-        self.image = self.loadImage()
-        self.orig_image = self.image
-        self.mask = pygame.mask.from_surface(self.image)
-        self.rect = self.image.get_rect(center=(x, y))
-        # TODO to rework: fix origin in the nose of the car
+                 driver="HAM",
+                 test=False):
         self.position = Vector2(x, y)
-        self.rect.center = self.position
+        if not test:
+            pygame.sprite.Sprite.__init__(self)
+            self.images_path = os.path.join(os.path.dirname(__file__), "img")
+            self.image = self.loadImage()
+            self.orig_image = self.image
+            self.mask = pygame.mask.from_surface(self.image)
+            self.rect = self.image.get_rect(center=(x, y))
+            self.rect.center = self.position
+        # TODO to rework: fix origin in the nose of the car
+        
         self.pilot_ia = None
         self.genome = None
         self.track_offset_x = None
@@ -136,7 +141,7 @@ class Car(pygame.sprite.Sprite):
         self.width = total_width * PPM
         self.length = total_length * PPM
         self.axel_track = total_width * PPM
-        # reglamentary F1 2020 axes max distance §3.2.2 FIA
+        # reglamentary F1 2023 axes max distance §3.2.2 FIA
         #  McLaren	    5400	2000	950  600:2000 (3.3mm/px), 1405:5400(3.29263mm/px)
         #                  measures from jpg  350:1410 px
         # 1405px:5400mm
@@ -165,15 +170,15 @@ class Car(pygame.sprite.Sprite):
         self.weight_pilot_kg = 80.0
         self.total_weight_kg = self.weight_empty_kg + self.weight_fuel_kg + self.weight_pilot_kg
         # ======= CAR SETUP
-        self.sensor_front_distance = 120.0 * PPM   # 120.0 m
+        self.sensor_front_distance = 300.0 * PPM   # 120.0 m
         self.sensor_lateral_distance = 50.0 * PPM  # 50.0  m
         # ======= PERFORMANCE ======
         # TODO load car profiles & calculate limits dynamically
         self.max_acceleration: float = 19.61 * PPM  # 19.61 m/s2 = 2G of acceleration
         self.max_steer: float = max_steer  # [deg]
-        self.max_speed = 102.88 * PPM  # (1028px/s => 102.8m/s = 370km/h)
+        self.max_speed = 70.0 *PPM # 102.88 * PPM  # (1028px/s => 102.8m/s = 370km/h)
         # TODO Dynamic 5.7G =55,9 m/s2 from real data in 2020
-        # TODOupdate date to 2023
+        # TODO update date to 2023
         self.brake_deceleration = 55.9 * PPM  # [m/s-2]
         # TODO self.free_deceleration integrate dynamically
         # calculated w/drag coef in function of speed
@@ -182,7 +187,8 @@ class Car(pygame.sprite.Sprite):
         self.velocity = velocity
         self.angular_velocity: float = 0.0
         # ======= Live data =======
-        self.actions = [0.0, 0.0]  # [0.0, 0.0, 0.0, 0.0]
+        # self.actions = [0.0, 0.0]
+        self.actions = [0.0, 0.0, 0.0]
         self.acceleration: float = acceleration
         self.steering: float = 0.0  # in [°] degrees
         self.camera: Vector2 = Vector2(0, 0)  # Assigned the camera as an attribute.
@@ -192,7 +198,7 @@ class Car(pygame.sprite.Sprite):
         self.lap_distance: float = 0.0
         self.velocity.x = min(self.velocity.x, self.max_speed)
         # TODO verify if acceleration is lower or = to max accel
-        self.kinematics = KinematicBicycleModel(self.max_steering)
+        self.kinematics = KinematicBicycleModel(self.wheel_base, self.max_steer)
         self.is_out: bool = False
         self.car_no: int = None
         self.sensors = []
@@ -226,7 +232,7 @@ class Car(pygame.sprite.Sprite):
                          {"drivetype": "combustion",
                           "manufacturer": "Mercedes",
                           "t_car": 0.0,
-                          "m_fuel": 100.0,
+                          "m_fuel": 110.0,
                           "b_fuel_perlap": 1.782,
                           "energy": None,
                           "energy_perlap": None,
@@ -332,7 +338,8 @@ class Car(pygame.sprite.Sprite):
         self.gen_inputs(track_left_line, track_right_line)
         # inp = [1 - self.inputs[i] for i in range(len(self.inputs)-1)]
         # inp.append(self.inputs[5])
-        self.actions = self.pilot_ia.activate(self.inputs)
+        self.actions = self.pilot_ia.activate(tuple(self.inputs))
+        # print(self.actions)
         # return self.pilot_ia.activate(inputs)
 
     def gen_inputs(self, track_left_line: LineString, track_right_line: LineString):
@@ -352,6 +359,7 @@ class Car(pygame.sprite.Sprite):
         self.inputs[3] = 1 - (self.inputs[3] / self.sensor_lateral_distance)
         self.inputs[2] = 1 - (self.inputs[2] / self.sensor_front_distance)
         self.inputs.append(self.get_normal_velocity())
+        # TODO add car track position as input
 
     def distance_to_track(self, sensor,
                           intersection_points,
@@ -368,12 +376,13 @@ class Car(pygame.sprite.Sprite):
             return sensor_lateral_distance if m in [0, 1, 3, 4] else sensor_front_distance
 
     def update_sensors(self):
-        cur_pos = self.get_nose_coords()
+        # cur_pos = self.get_nose_coords()
+        cur_pos = self.get_car_pos()
         self.sensors = []
         count = 180
         for i in np.arange(4, -1, -1):
             dist = self.sensor_front_distance if i == 2 else self.sensor_lateral_distance
-            omega = -radians(self.angle + count - 180)
+            omega = -radians(self.yaw + count - 180)
             count -= 60 if i in [4, 1] else 30
             dx = dist * sin(omega)
             dy = - dist * cos(omega)
@@ -386,9 +395,9 @@ class Car(pygame.sprite.Sprite):
                      ]))
         # return sensors
 
-    def detect_collision(self, mask, offset_x, offset_y):
+    def detect_collision(self, track_mask, offset_x, offset_y):
         rect = self.mask.get_rect()
-        mask_nb_bits_overlap = mask.overlap_mask(
+        mask_nb_bits_overlap = track_mask.overlap_mask(
             self.mask, (int(offset_x + self.position.x - rect.center[0]),
                         int(offset_y + self.position.y - rect.center[1])
                         )).count()
@@ -408,13 +417,13 @@ class Car(pygame.sprite.Sprite):
         self.velocity.x = max(0, min(new_velocity, self.max_speed))
         # self.velocity.x = max(self.new_velocity, 0)
 
-    def update_acceleration(self, dt, action):
-        threshold = 0.05
-        if action <= -threshold:  # from -1.0 to -threshold ==> BRAKE
+    def update_acceleration(self, dt):
+        threshold = 0.5
+        if self.actions[1] <= -threshold:  # from -1.0 to -threshold ==> BRAKE
             self.acceleration = (-self.brake_deceleration
                                  if abs(self.velocity.x) > dt * self.brake_deceleration
                                  else -self.velocity.x / dt)
-        elif action >= threshold:  # from threshold to 1.0 ==> ACCELERATE
+        elif self.actions[1] >= threshold:  # from threshold to 1.0 ==> ACCELERATE
             # self.acceleration = (72.0927 * np.log(118.4362*action - 33.5337) - 124.974)*dt
             self.acceleration += 1 * dt
             self.acceleration = max(-self.max_acceleration,
@@ -422,28 +431,57 @@ class Car(pygame.sprite.Sprite):
         else:
             self.acceleration = -self.free_deceleration
 
+    def update_acceleration_2(self, dt):
+        threshold = 0.4
+        break_percent = (1 - (self.actions[2]*5/2))
+        throttle_percent = ((self.actions[2]*5/3) - 1)
+        if self.actions[2] <= threshold:  # from 0 to -threshold ==> BRAKE
+            # self.acceleration = (-self.brake_deceleration
+            #                      if abs(self.velocity.x) > dt * self.brake_deceleration
+            #                      else -self.velocity.x / dt)
+            self.acceleration = break_percent * -self.brake_deceleration
+        elif self.actions[2] >= threshold + 0.2:  # from 0.6 to 1.0 ==> ACCELERATE
+            # self.acceleration = (72.0927 * np.log(118.4362 * throttle_percent - 33.5337) - 124.974)*dt
+            self.acceleration = self.max_acceleration * throttle_percent
+            self.acceleration = max(-self.max_acceleration,
+                                    min(self.max_acceleration, self.acceleration))
+        else: # from 0.4 to 0.6 free deceleration
+            self.acceleration = -self.free_deceleration
+
+        # print(f'[Accel UPDT]{throttle_percent} {self.acceleration} / {self.max_acceleration}')
+
     def update_camera(self, dt):
         pass
 
-    def update_steering_angle(self, dt):
-        # self.steering is angel in deg [°] deg        
-        threshold = 0.05
+    def update_steering_angle_1(self, dt):
+        # self.steering is angel in deg [°] deg
+        threshold = 0.1
         # Steering left
         if self.actions[1] <= -threshold:
             self.steering -= STEERING_SPEED * dt
-            self.steering = max(self.steering, -self.max_steering)
+            self.steering = max(self.steering, -self.max_steer)
         # Steering right
         elif self.actions[1] >= threshold:
             self.steering += STEERING_SPEED * dt
-            self.steering = min(self.steering, self.max_steering)
-        # else:
-        #     self.steering = 0.0
-        # if steer angle is between -1 and 1 steering wheel is centred
-        if self.steering > -1 and self.steering < 1:
+            self.steering = min(self.steering, self.max_steer)
+        else:
             self.steering = 0.0
-        # # Limit steering angle to physical vehicle limits
-        # self.steering = max(-self.max_steering,
-        #                     min(self.max_steering, self.steering))
+        return self.steering
+
+    def update_steering_angle_2(self, dt):
+        # self.steering is angle in deg [°] deg
+        threshold = 0.5
+        LEFT_OR_RIGHT = LEFT if self.actions[LEFT] > self.actions[RIGHT] else RIGHT
+        if self.actions[LEFT] < threshold and self.actions[RIGHT] < threshold:
+            self.steering = 0.0
+        elif LEFT_OR_RIGHT == LEFT:
+            self.steering -= STEERING_SPEED * dt
+            self.steering = max(self.steering, -self.max_steer)
+        else:
+            self.steering += STEERING_SPEED * dt
+            self.steering = min(self.steering, self.max_steer)
+
+        return self.steering
 
     def update_angular_velocity(self):
         if self.steering:
@@ -468,33 +506,48 @@ class Car(pygame.sprite.Sprite):
         # and brake force of the car
         # TODO add model of acceleration / brake change
         rac = self.get_rear_axel_center_coords()
-        self.update_steering_angle(dt)
-        self.update_acceleration(dt, self.actions[0])
+        # self.update_steering_angle_1(dt)
+        # self.update_acceleration(dt, self.actions[0])
+        self.update_steering_angle_2(dt)
+        self.update_acceleration_2(dt)
+        # (rear_wheel_axel_center_x,
+        #  rear_wheel_axel_center_y,
+        #  new_yaw, new_velocity,
+        #  new_steering_angle,
+        #  new_angular_velocity) = self.kinematics.update(rac.x,
+        #                                                 rac.y,
+        #                                                 radians(self.yaw),
+        #                                                 self.velocity.x,
+        #                                                 self.acceleration,
+        #                                                 self.steering,
+        #                                                 dt)
         (rear_wheel_axel_center_x,
          rear_wheel_axel_center_y,
-         new_yaw, new_velocity,
-         new_steering_angle,
-         new_angular_velocity) = self.kinematics.update(rac.x,
-                                                        rac.y,
-                                                        self.yaw,
+         new_yaw_rads, new_velocity,
+         new_steering_angle_rads,
+         new_angular_velocity) = self.kinematics.update(self.position.x,
+                                                        self.position.y,
+                                                        radians(self.yaw),
                                                         self.velocity.x,
                                                         self.acceleration,
-                                                        degrees(self.steering),
+                                                        radians(self.steering),
                                                         dt)
-
+        self.yaw = degrees(new_yaw_rads)
         self.update_velocity(new_velocity)
         # TODO rename lap_distance by traveled_distance
         self.lap_distance += self.velocity.x * dt / 1000
-        self.update_angular_velocity()
-        vel = self.velocity.rotate(-self.angle) * dt
+        # self.update_angular_velocity()
+        vel = self.velocity.rotate(-self.yaw) * dt
         self.position += vel
+        # self.position.x = rear_wheel_axel_center_x
+        # self.position.y = rear_wheel_axel_center_y
         self.camera += vel  # Update the camera position as well.
-        self.angle += degrees(self.angular_velocity) * dt
+        # self.angle += degrees(self.angular_velocity) * dt
         # If you use the rect as the blit position, you should update it, too.
         self.rect.center = self.position
 
         self.image = pygame.transform.rotozoom(self.orig_image,
-                                               self.angle, 1)
+                                               self.yaw, 1)
         self.rect = self.image.get_rect(center=self.rect.center)
         self.mask = pygame.mask.from_surface(self.image)
         # game.car_group.rect = self.image.get_rect(center=self.rect.center)

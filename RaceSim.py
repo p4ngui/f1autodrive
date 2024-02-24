@@ -41,7 +41,7 @@ def neat_init(checkpoint_iterval: int = 5,
     # save checkpoint each n genome iteration
     p.add_reporter(neat.Checkpointer(checkpoint_iterval))
     p.add_reporter(stats)
-    return p, stats
+    return p, stats, config
 
 
 def genome_evaluation(genomes, config):
@@ -83,7 +83,7 @@ def generation_iteration(genomes, config):
             # else:
             #     print(f"Events : {event}")
         # ======== User input ===========
-        game.main_keystrokes_manager(pygame.key.get_pressed(), stats)
+        game.main_keystrokes_manager(pygame.key.get_pressed(), stats, config)
         # ======== init chrono ===========
         game.best_local = 0.0
         dt = game.clock.tick(game.ticks) / 1000
@@ -103,7 +103,7 @@ def generation_iteration(genomes, config):
                     car_p = Vector2(car.rect.topleft[0] - car.camera[0],
                                     car.rect.topleft[1] - car.camera[1])
                     game.drawsensors(car.rect.center,
-                                     car.angle,
+                                     car.yaw,
                                      game.best_local_inputs,
                                      car.sensor_front_distance,
                                      car.sensor_lateral_distance,
@@ -139,8 +139,8 @@ if __name__ == '__main__':
     CHECKPOINT_INTERVAL = 5
     stats = None
     config_path = os.path.join(local_dir, "racesim", "config", "neat_config.ini")
-    p, stats = neat_init(CHECKPOINT_INTERVAL, RESTORE, '', config_path)
-
+    p, stats, config = neat_init(CHECKPOINT_INTERVAL, RESTORE, 'neat-checkpoint-264', config_path)
+    # p, stats, config = neat_init(CHECKPOINT_INTERVAL, RESTORE, '', config_path)
     # Run AI main routine for each generation cycle util generation_iteration or dead of all species
     GENERATION_CYCLES = 100000
     p.run(generation_iteration, GENERATION_CYCLES)
