@@ -221,12 +221,13 @@ class Game:
                                                       self.track.offset_y) if t > 9 else False
 
             # self.cars[k].update_fitness((delta_distance * 0.01) + car_mean_speed * 0.001)
-            self.cars[k].update_fitness((delta_distance * 10))
+            fitness = delta_distance - (2 * dt) - (100 if collision else 0)
+            self.cars[k].update_fitness((fitness))
             # TODO :  change method of detection to remove bad genomes
             if ((collision) or (delta_best_distance > BAD_GENOME_THRESHOLD) or (
                 self.cars[k].lap_distance < car_lap_distance_old
                     ) or self.cars[k].velocity.x < 0.1):
-                self.cars[k].update_fitness((-delta_distance * 5))
+                # self.cars[k].update_fitness((-delta_distance * 5))
                 # if self.cars_inrace == 1:
                 #     self.cars[k].genome.fitness *= 1.1
                 self.cars[k].is_out = True

@@ -454,7 +454,7 @@ class Car(pygame.sprite.Sprite):
         pass
 
     def update_steering_angle_1(self, dt):
-        # self.steering is angel in deg [°] deg
+        # self.steering is angle in deg [°] deg
         threshold = 0.1
         # Steering left
         if self.actions[1] <= -threshold:
@@ -470,15 +470,15 @@ class Car(pygame.sprite.Sprite):
 
     def update_steering_angle_2(self, dt):
         # self.steering is angle in deg [°] deg
-        threshold = 0.5
+        threshold = 0.1
         LEFT_OR_RIGHT = LEFT if self.actions[LEFT] > self.actions[RIGHT] else RIGHT
         if self.actions[LEFT] < threshold and self.actions[RIGHT] < threshold:
             self.steering = 0.0
         elif LEFT_OR_RIGHT == LEFT:
-            self.steering -= STEERING_SPEED * dt
+            self.steering -= STEERING_SPEED * dt #* abs(self.actions[LEFT])
             self.steering = max(self.steering, -self.max_steer)
         else:
-            self.steering += STEERING_SPEED * dt
+            self.steering += STEERING_SPEED * dt #*abs(self.actions[RIGHT])
             self.steering = min(self.steering, self.max_steer)
 
         return self.steering

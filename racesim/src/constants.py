@@ -44,9 +44,9 @@ SAFE_SPACE = SPACING + 50      # buffer space above the screen
 ROAD_WIDTH = 250
 
 # =================== Display and Colors ==============
-NODE_RADIUS = 20
+NODE_RADIUS = 10
 NODE_SPACING = 5
-LAYER_SPACING = 100
+LAYER_SPACING = 50
 CONNECTION_WIDTH = 1
 
 WHITE = (255, 255, 255)
