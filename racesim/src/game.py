@@ -10,6 +10,7 @@ from racesim.src.track import Track
 from racesim.src.constants import (BLACK, DARK_GRAY, GREEN, NODE_FONT, STAT_FONT)
 from racesim.src.constants import BAD_GENOME_THRESHOLD
 import racesim.src.util.visualize as visualize
+from shapely.geometry.polygon import Point
 import neat
 
 
@@ -28,7 +29,6 @@ class Game:
         self.bestCarDistance = 0.0
         self.bestActions = [0, 0, 0, 0]
         self.bestInputs = [0, 0, 0, 0, 0, 0]
-        self.bestGenome = None
         self.bestNN = None
         self.best_lap_Distance = None
         self.best_lap_speed = 0
@@ -221,8 +221,12 @@ class Game:
                                                       self.track.offset_y) if t > 9 else False
 
             # self.cars[k].update_fitness((delta_distance * 0.01) + car_mean_speed * 0.001)
-            fitness = delta_distance - (2 * dt) - (100 if collision else 0)
-            self.cars[k].update_fitness((fitness))
+            # pos = self.cars[k].get_car_pos()
+            # pos = Point(pos.x,pos.y)
+            #dst_rwd =self.cars[k].lap_distance/self.track.get_track_length()
+            # print(delta_distance,delta_distance/dt)
+            fitness = delta_distance/dt # + 100 * dst_rwd
+            self.cars[k].update_fitness(fitness,collision)
             # TODO :  change method of detection to remove bad genomes
             if ((collision) or (delta_best_distance > BAD_GENOME_THRESHOLD) or (
                 self.cars[k].lap_distance < car_lap_distance_old
@@ -284,14 +288,15 @@ class Game:
         return self.score
 
     def drawsensors(self, center, angle, inputs, sensor_front_distance,
-                    sensor_lateral_distance, camera):
+                    sensor_lateral_distance,sensor_diag_distance, camera):
         count = 180
         for i in np.arange(4, -1, -1):
-            if i in [0, 4, 1, 3]:
-                dist = (1-inputs[4-i]) * sensor_lateral_distance
-            elif i == 2:
-                # inputs[4-i] = 0 if inputs[4-i] == 1 else inputs[4-i]
+            if i == 2 :
                 dist = (1-inputs[4-i]) * sensor_front_distance
+            elif i in [0, 4]:
+                dist = (1-inputs[4-i]) * sensor_lateral_distance
+            else:
+                dist = (1-inputs[4-i]) * sensor_diag_distance                
             omega = -radians(angle + count - 180)
             count -= 60 if i in [4, 1] else 30
             dx = dist * sin(omega)

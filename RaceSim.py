@@ -13,7 +13,7 @@ from racesim.src.game import Game
 # TODO: create driver class
 
 
-def neat_init(checkpoint_iterval: int = 5,
+def neat_init(checkpoint_iterval: int = 20,
               restore: bool = False,
               checkpoint_file: str = "",
               config_path=""):
@@ -107,6 +107,7 @@ def generation_iteration(genomes, config):
                                      game.best_local_inputs,
                                      car.sensor_front_distance,
                                      car.sensor_lateral_distance,
+                                     car.sensor_diag_distance,
                                      car.camera
                                      ) if game.show_sensor else None
                 game.screen.blit(car.image, car_p)
@@ -135,17 +136,17 @@ if __name__ == '__main__':
     game = Game()
     game.buildTrack(racesim.src.track_config.trackConfig())
     # init AI
-    RESTORE = False
-    CHECKPOINT_INTERVAL = 5
+    RESTORE = True
+    CHECKPOINT_INTERVAL = 20
     stats = None
     config_path = os.path.join(local_dir, "racesim", "config", "neat_config.ini")
-    p, stats, config = neat_init(CHECKPOINT_INTERVAL, RESTORE, 'neat-checkpoint-264', config_path)
+    p, stats, config = neat_init(CHECKPOINT_INTERVAL, RESTORE, 'neat-checkpoint-384', config_path)
     # p, stats, config = neat_init(CHECKPOINT_INTERVAL, RESTORE, '', config_path)
     # Run AI main routine for each generation cycle util generation_iteration or dead of all species
     GENERATION_CYCLES = 100000
     p.run(generation_iteration, GENERATION_CYCLES)
 
-    # End Race
+    # End Racer
     # End Game
     pygame.quit()
 

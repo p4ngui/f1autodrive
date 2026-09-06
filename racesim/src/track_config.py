@@ -1,11 +1,18 @@
 class trackConfig:
     def __init__(self):
-        self.track_pars = {"location": "lemanscik",
-                           "track_length": 1385.0,
-                           "track_width": 14.0}
+        # self.track_pars = {"location": "lemanscik",
+        #                    "track_length": 1385.0,
+        #                    "track_width": 14.0}
         # self.track_pars = {"location": "Monza",
         #                    "track_length": 5793.0,
         #                    "track_width": 14.0}
+        # self.track_pars = {"location": "SPA",
+        #                    "track_length": 7004.0,
+        #                    "track_width": 14.0}
+        self.track_pars = {"location": "Mugello_2020",
+                           "track_length": 5245.0,
+                           "track_width": 14.0}
+        
     # set import options ---------------------------------------------------
     # mode:          "track" or "centerline" -> track is supplied as .csv
     #                and contains [x, y, w_tr_right, w_tr_left],

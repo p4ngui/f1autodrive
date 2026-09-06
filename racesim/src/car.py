@@ -109,7 +109,21 @@ class KinematicBicycleModel:
         Williams	5.4	        2.0	        0.96
     """
 
-
+"""
+    https://formulapedia.com/f1-car-length/
+    F1 2024 measures in mm
+    F1 Team	        Length (mm)	Width (mm)	Height (mm)        
+        Mercedes        5,500	2,000   	970
+        Red Bull	    5,400	2,000   	950
+        Ferrari         5,500	2,000   	970
+        Alpine      	5,620	2,000   	1,100
+        McLaren	        5,400	2,000   	950
+        Alfa Romeo	    5,500	2,000   	950
+        Haas	        5,500	2,000   	950
+        Alpha Tauri	    5,500	2,000   	950
+        Aston Martin	5,600	2,000   	950
+        Williams	    5,400	2,000   	960
+        """
 class Car(pygame.sprite.Sprite):
 
     def __init__(self, x, y,
@@ -170,8 +184,9 @@ class Car(pygame.sprite.Sprite):
         self.weight_pilot_kg = 80.0
         self.total_weight_kg = self.weight_empty_kg + self.weight_fuel_kg + self.weight_pilot_kg
         # ======= CAR SETUP
-        self.sensor_front_distance = 300.0 * PPM   # 120.0 m
-        self.sensor_lateral_distance = 50.0 * PPM  # 50.0  m
+        self.sensor_front_distance = 25.0 * PPM   # 120.0 m
+        self.sensor_lateral_distance = 6.00 * PPM  # 50.0  m
+        self.sensor_diag_distance = 15.00 * PPM  # 50.0  m
         # ======= PERFORMANCE ======
         # TODO load car profiles & calculate limits dynamically
         self.max_acceleration: float = 19.61 * PPM  # 19.61 m/s2 = 2G of acceleration
@@ -182,7 +197,7 @@ class Car(pygame.sprite.Sprite):
         self.brake_deceleration = 55.9 * PPM  # [m/s-2]
         # TODO self.free_deceleration integrate dynamically
         # calculated w/drag coef in function of speed
-        self.free_deceleration = 1.0 * PPM  # [m/s-2]
+        self.free_deceleration = 1.0 * PPM  # [m/s-2]q
         self.yaw = yaw  # Car direction angle in °
         self.velocity = velocity
         self.angular_velocity: float = 0.0
@@ -193,16 +208,16 @@ class Car(pygame.sprite.Sprite):
         self.steering: float = 0.0  # in [°] degrees
         self.camera: Vector2 = Vector2(0, 0)  # Assigned the camera as an attribute.
         self.lap_start_time: float = 0.0
-        self.laptimes = []
+        self.laptime : list = []
         self.lap_number: int = 0
         self.lap_distance: float = 0.0
         self.velocity.x = min(self.velocity.x, self.max_speed)
         # TODO verify if acceleration is lower or = to max accel
         self.kinematics = KinematicBicycleModel(self.wheel_base, self.max_steer)
-        self.is_out: bool = False
-        self.car_no: int = None
-        self.sensors = []
-        self.inputs = []
+        self.is_out: bool  = False
+        self.car_no: int   = None
+        self.sensors :list = []
+        self.inputs :list  = []
         # TODO initialise this vas from game
         # HINT: parameters are per team, not manufacturer!
         # drivetype:                [-] combustion or electric (hybrid is treated as combustion)
@@ -343,20 +358,18 @@ class Car(pygame.sprite.Sprite):
         # return self.pilot_ia.activate(inputs)
 
     def gen_inputs(self, track_left_line: LineString, track_right_line: LineString):
-        self.inputs = []
+        self.inputs = [0,0,0,0,0]
         car_pos = Point(self.get_car_pos())
         for m, sensor in enumerate(self.sensors):
             left_intersection_points = track_left_line.intersection(sensor)
             right_intersection_points = track_right_line.intersection(sensor)
-            dl = self.distance_to_track(sensor, left_intersection_points, car_pos,
-                                        self.sensor_front_distance, self.sensor_lateral_distance, m)
-            dr = self.distance_to_track(sensor, right_intersection_points, car_pos,
-                                        self.sensor_front_distance, self.sensor_lateral_distance, m)
-            self.inputs.append(min(dl, dr))
+            dl = self.distance_to_track(sensor, left_intersection_points, car_pos, m)
+            dr = self.distance_to_track(sensor, right_intersection_points, car_pos, m)
+            self.inputs[m] = min(dl, dr)
         self.inputs[0] = 1 - (self.inputs[0] / self.sensor_lateral_distance)
         self.inputs[4] = 1 - (self.inputs[4] / self.sensor_lateral_distance)
-        self.inputs[1] = 1 - (self.inputs[1] / self.sensor_lateral_distance)
-        self.inputs[3] = 1 - (self.inputs[3] / self.sensor_lateral_distance)
+        self.inputs[1] = 1 - (self.inputs[1] / self.sensor_diag_distance)
+        self.inputs[3] = 1 - (self.inputs[3] / self.sensor_diag_distance)
         self.inputs[2] = 1 - (self.inputs[2] / self.sensor_front_distance)
         self.inputs.append(self.get_normal_velocity())
         # TODO add car track position as input
@@ -364,8 +377,6 @@ class Car(pygame.sprite.Sprite):
     def distance_to_track(self, sensor,
                           intersection_points,
                           o_pt,
-                          sensor_front_distance,
-                          sensor_lateral_distance,
                           m):
         if intersection_points.geom_type == "MultiPoint":
             a = {o_pt.distance(pt): pt for pt in intersection_points.geoms}
@@ -373,15 +384,27 @@ class Car(pygame.sprite.Sprite):
         if not intersection_points.is_empty:
             return sensor.project(intersection_points)
         else:
-            return sensor_lateral_distance if m in [0, 1, 3, 4] else sensor_front_distance
-
+            if m in [0, 4]:
+                return self.sensor_lateral_distance 
+            elif m in [1, 3]:
+                    return self.sensor_diag_distance
+            else:
+                return self.sensor_front_distance
+            
     def update_sensors(self):
         # cur_pos = self.get_nose_coords()
         cur_pos = self.get_car_pos()
         self.sensors = []
         count = 180
         for i in np.arange(4, -1, -1):
-            dist = self.sensor_front_distance if i == 2 else self.sensor_lateral_distance
+            if i == 2:
+                dist = self.sensor_front_distance 
+            elif i in [0, 4]:
+                dist = self.sensor_lateral_distance
+            else:
+                dist = self.sensor_diag_distance
+                
+            
             omega = -radians(self.yaw + count - 180)
             count -= 60 if i in [4, 1] else 30
             dx = dist * sin(omega)
@@ -394,7 +417,7 @@ class Car(pygame.sprite.Sprite):
                       cur_pos.y + dy)
                      ]))
         # return sensors
-
+    
     def detect_collision(self, track_mask, offset_x, offset_y):
         rect = self.mask.get_rect()
         mask_nb_bits_overlap = track_mask.overlap_mask(
@@ -490,8 +513,8 @@ class Car(pygame.sprite.Sprite):
         else:
             self.angular_velocity = 0
 
-    def update_fitness(self, add_to_fitness):
-        self.genome.fitness += add_to_fitness
+    def update_fitness(self, add_to_fitness,collision):
+        self.genome.fitness += add_to_fitness - (10 if collision else 0)
 
     def update(self, dt):
         # TODO change Acceleration by throttle
