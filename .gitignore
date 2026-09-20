@@ -4,4 +4,6 @@
 .mypy_cache
 .obsidian
 .pytest_cache
+racesim\__pycache__
+racesim\src\__pycache__
 .vscode
