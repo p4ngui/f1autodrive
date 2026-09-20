@@ -1,8 +1,12 @@
 # Spécification Détaillée : Rétro-Ingénierie des Paramètres F1 2026 par Analyse de Télémétrie FastF1
 
+**Version mise à jour** : v1.1 - Intégration analyse réelle des données FastF1 et alternatives
+
 ## Résumé Exécutif
 
 Ce document spécifie une méthodologie complète pour extraire les paramètres physiques et techniques des voitures F1 2026 through reverse engineering à partir des données télémétriques officielles récupérées via l'API FastF1. L'approche combine analyse statistique, optimisation numérique et validation croisée pour atteindre une précision maximale.
+
+**Mise à jour v1.1** : Cette version intègre les résultats d'analyse réelle des données FastF1 (session Bahrain 2022 Race) et une évaluation complète des bibliothèques Python alternatives.
 
 **Objectif Principal** : Déterminer avec précision les paramètres suivants :
 - Puissance moteur ICE + ERS (kW)
@@ -18,16 +22,18 @@ Ce document spécifie une méthodologie complète pour extraire les paramètres 
 ## Table des Matières
 
 1. [Architecture du Système de Rétro-Ingénierie](#1-architecture-du-système-de-rétro-ingénierie)
-2. [Thème 1 : Acquisition et Prétraitement des Données FastF1](#2-thème-1--acquisition-et-prétraitement-des-données-fastf1)
-3. [Thème 2 : Estimation de la Puissance Moteur en Ligne Droite](#3-thème-2--estimation-de-la-puissance-moteur-en-ligne-droite)
-4. [Thème 3 : Calcul des Rapports de Boîte de Vitesses](#4-thème-3--calcul-des-rapports-de-boîte-de-vitesses)
-5. [Thème 4 : Analyse Aérodynamique et Coefficients Cx/Cz](#5-thème-4--analyse-aérodynamique-et-coefficients-cxcz)
-6. [Thème 5 : Performance de Freinage et Points de Décélération](#6-thème-5--performance-de-freinage-et-points-de-décélération)
-7. [Thème 6 : Trajectoires de Référence et Points de Virage](#7-thème-6--trajectoires-de-référence-et-points-de-virage)
-8. [Thème 7 : Gestion ERS et Stratégies Énergétiques](#8-thème-7--gestion-ers-et-stratégies-énergétiques)
-9. [Thème 8 : Caractérisation des Pneus](#9-thème-8--caractérisation-des-pneus)
-10. [Évaluation des Plateformes de Simulation](#10-évaluation-des-plateformes-de-simulation)
-11. [Recommandations d'Implémentation et Roadmap](#11-recommandations-dimplémentation-et-roadmap)
+2. [Analyse Réelle des Données FastF1](#2-analyse-réelle-des-données-fastf1)
+3. [Thème 1 : Acquisition et Prétraitement des Données FastF1](#3-thème-1--acquisition-et-prétraitement-des-données-fastf1)
+4. [Thème 2 : Estimation de la Puissance Moteur en Ligne Droite](#4-thème-2--estimation-de-la-puissance-moteur-en-ligne-droite)
+5. [Thème 3 : Calcul des Rapports de Boîte de Vitesses](#5-thème-3--calcul-des-rapports-de-boîte-de-vitesses)
+6. [Thème 4 : Analyse Aérodynamique et Coefficients Cx/Cz](#6-thème-4--analyse-aérodynamique-et-coefficients-cxcz)
+7. [Thème 5 : Performance de Freinage et Points de Décélération](#7-thème-5--performance-de-freinage-et-points-de-décélération)
+8. [Thème 6 : Trajectoires de Référence et Points de Virage](#8-thème-6--trajectoires-de-référence-et-points-de-virage)
+9. [Thème 7 : Gestion ERS et Stratégies Énergétiques](#9-thème-7--gestion-ers-et-stratégies-énergétiques)
+10. [Thème 8 : Caractérisation des Pneus](#10-thème-8--caractérisation-des-pneus)
+11. [Évaluation des Plateformes de Simulation](#11-évaluation-des-plateformes-de-simulation)
+12. [Bibliothèques Python Alternatives](#12-bibliothèques-python-alternatives)
+13. [Recommandations d'Implémentation et Roadmap](#13-recommandations-dimplémentation-et-roadmap)
 
 ---
 
@@ -126,11 +132,142 @@ class TelemetryReverseEngineering:
 
 ---
 
-## 2. Thème 1 : Acquisition et Prétraitement des Données FastF1
+## 2. Analyse Réelle des Données FastF1
 
-### 2.1 Sources de Données Requises
+### 2.1 Résultats d'Analyse - Bahrain GP 2022 (Course)
 
-#### 2.1.1 API FastF1 - Sessions Cibles
+**Session analysée** : Bahrain Grand Prix 2022 - Race  
+**Pilote** : Charles Leclerc (Ferrari #16)  
+**Tour analysé** : Tour 51 (le plus rapide)  
+**Données collectées** : 705 points de télémétrie
+
+#### 2.1.1 Structure des Données Disponibles (18 colonnes)
+
+| Colonne | Type | Non-null | Description |
+|---------|------|----------|-------------|
+| **Date** | datetime64[ns] | 705/705 | Horodatage absolu |
+| **SessionTime** | timedelta64[ns] | 705/705 | Temps depuis début session |
+| **DriverAhead** | object | 705/705 | Pilote devant |
+| **DistanceToDriverAhead** | float64 | 0/705 | Distance au pilote devant (non disponible) |
+| **Time** | timedelta64[ns] | 705/705 | Temps dans le tour |
+| **RPM** | float64 | 705/705 | Régime moteur |
+| **Speed** | float64 | 705/705 | Vitesse (km/h) |
+| **nGear** | int64 | 705/705 | Rapport de boîte actuel |
+| **Throttle** | float64 | 705/705 | Position accélérateur (0-100%) |
+| **Brake** | bool | 705/705 | État du frein (True/False) |
+| **DRS** | int64 | 705/705 | État DRS (0=fermé, 1=ouvert) |
+| **Source** | object | 705/705 | Source des données |
+| **Distance** | float64 | 705/705 | Distance parcourue (m) |
+| **RelativeDistance** | float64 | 705/705 | Distance relative (%) |
+| **Status** | object | 705/705 | Statut (OnTrack, etc.) |
+| **X** | float64 | 705/705 | Position X (m) |
+| **Y** | float64 | 705/705 | Position Y (m) |
+| **Z** | float64 | 705/705 | Position Z (m) |
+
+#### 2.1.2 Statistiques Clés
+
+**Vitesse :**
+- Min : 61 km/h (virage lent)
+- Max : 299 km/h (ligne droite)
+- Moyenne : 201.7 km/h
+- Écart-type : 66.9 km/h
+
+**Régime Moteur :**
+- Min : 5,306 RPM
+- Max : 12,026 RPM (**limiteur ~12,000 RPM confirmé**)
+- Moyenne : 10,188 RPM
+- Zone optimale (>10,000 RPM) : 58.4% du temps
+
+**Pédales :**
+- Accélérateur à 100% : 48.5% du temps
+- Accélérateur partiel : 46.1% du temps
+- Accélérateur à 0% : 5.4% du temps
+- Freinage actif : 21.7% du temps
+
+**DRS :**
+- Sur ce tour : DRS ouvert 100% du temps (ligne droite principale)
+- Valeurs uniques : [1] uniquement
+
+#### 2.1.3 Fréquence d'Échantillonnage
+
+- **Intervalle moyen** : 134.33 ms
+- **Fréquence** : 7.4 Hz (variable selon les sessions)
+- **Observation** : La fréquence est inférieure aux 240 Hz théoriques, probablement due à l'agrégation des données FOM
+
+#### 2.1.4 Calcul d'Accélération (dérivée de la vitesse)
+
+⚠️ **Attention** : Les valeurs calculées brutes sont irréalistes :
+- Accélération max brute : 26.04 G
+- Décélération max brute : 79.86 G
+
+**Cause** : Le bruit de mesure et la faible fréquence d'échantillonnage créent des artefacts.  
+**Solution requise** : Filtrage passe-bas (Butterworth, ordre 4, cutoff 5Hz) avant calcul des dérivées.
+
+#### 2.1.5 Corrélations entre Variables
+
+| | Speed | RPM | Throttle | Brake | Distance |
+|---|-------|-----|----------|-------|----------|
+| **Speed** | 1.00 | 0.79 | 0.65 | -0.31 | 0.09 |
+| **RPM** | 0.79 | 1.00 | 0.70 | -0.38 | 0.22 |
+| **Throttle** | 0.65 | 0.70 | 1.00 | **-0.82** | 0.11 |
+| **Brake** | -0.31 | -0.38 | **-0.82** | 1.00 | -0.09 |
+| **Distance** | 0.09 | 0.22 | 0.11 | -0.09 | 1.00 |
+
+**Observations importantes :**
+- Forte corrélation négative Throttle/Brake (-0.82) : les pilotes n'accélèrent et ne freinent jamais simultanément
+- Corrélation Speed/RPM (0.79) : permet d'estimer les rapports de boîte
+- Faible corrélation avec Distance : normal car circuit fermé
+
+#### 2.1.6 Segments de Vitesse
+
+| Segment | Plage | Points | % du tour |
+|---------|-------|--------|-----------|
+| Haute vitesse | >280 km/h | 77 pts | 10.9% |
+| Vitesse moyenne | 150-280 km/h | 439 pts | 62.3% |
+| Basse vitesse | <150 km/h | 189 pts | 26.8% |
+
+#### 2.1.7 Coordonnées GPS (X, Y, Z)
+
+- **X** : -577 m à +7,497 m
+- **Y** : -3,500 m à +8,346 m
+- **Z** : -159 m à +8 m (dénivelé du circuit Bahrain)
+
+### 2.2 Implications pour la Rétro-Ingénierie
+
+#### 2.2.1 Limitations Identifiées
+
+1. **Fréquence d'échantillonnage limitée (7.4 Hz)**
+   - Insuffisant pour capturer des événements transitoires rapides
+   - Nécessite interpolation linéaire/cubique pour monter à 100 Hz
+   
+2. **Données manquantes**
+   - `DistanceToDriverAhead` toujours nul (sauf en bataille rapprochée)
+   - Pas de données de pression pneu, température, usure
+   - Pas de données ERS directes (puissance, SOC)
+   - Pas de consommation carburant en temps réel
+
+3. **Bruit de mesure**
+   - Les dérivées (accélération) sont très bruitées
+   - Filtrage obligatoire avant toute utilisation
+
+4. **DRS binaire**
+   - Seulement 0 ou 1, pas de position intermédiaire
+   - Limite l'analyse fine de l'impact aérodynamique
+
+#### 2.2.2 Opportunités
+
+1. **nGear disponible** : Permet de calculer directement les rapports de boîte
+2. **Positions X/Y/Z précises** : Reconstruction fidèle des trajectoires
+3. **Corrélation Throttle/Brake** : Validation des modèles de comportement pilote
+4. **RPM max à 12,026** : Confirmation du limiteur à 12,000 RPM (réglementation F1)
+
+---
+
+## 3. Thème 1 : Acquisition et Prétraitement des Données FastF1
+
+### 3.1 Sources de Données Requises
+
+#### 3.1.1 API FastF1 - Sessions Cibles
 
 **Saison 2024-2025** (pour extrapolation 2026) :
 - Toutes les séances de qualification (Q1, Q2, Q3)
@@ -145,7 +282,7 @@ class TelemetryReverseEngineering:
 5. **Silverstone** : Virages haute vitesse → charge aero
 6. **Jeddah** : Vitesses moyennes élevées → efficacité aero
 
-#### 2.1.2 Canaux de Télémétrie Requis
+#### 3.1.2 Canaux de Télémétrie Requis
 
 | Canal | Unité | Fréquence | Usage |
 |-------|-------|-----------|-------|
