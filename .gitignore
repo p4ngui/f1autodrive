@@ -1,3 +1,4 @@
+(docs/architecture_detaillee_v2.md, docs/spec_hybrid_physics_ml.md, .gitignore, docs/architecture_detaillee.md, docs/spec_ameliorations.md, docs/spec_f1_2026.md)
 # No changes needed - only source/config file was modified
 (docs/spec_retro_engineering_f1_2026.md is a documentation file, which is a source file, so it should not be ignored)
 # Documentation files only - no build artifacts or dependencies detected
