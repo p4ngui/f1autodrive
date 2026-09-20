@@ -1,2 +1,1 @@
-# Documentation files only - no build artifacts or dependencies detected
-# No .gitignore rules needed for this project
+(docs/spec_retro_engineering_f1_2026.md is a documentation file, which is a source file, so it should not be ignored)
