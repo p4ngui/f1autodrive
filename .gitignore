@@ -1,2 +1,7 @@
 # Documentation files only - no build artifacts or dependencies detected
 # No .gitignore rules needed for this project
+.kilo
+.mypy_cache
+.obsidian
+.pytest_cache
+.vscode
